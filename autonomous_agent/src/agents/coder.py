@@ -6,6 +6,7 @@ from pathlib import Path
 
 from src.agents.base_agent import BaseAgent
 from src.llm.tools import get_coding_tools
+from src.projects.scaffolder import ProjectScaffolder
 
 
 class CoderAgent(BaseAgent):
@@ -20,6 +21,7 @@ class CoderAgent(BaseAgent):
         """
         super().__init__(*args, **kwargs)
         self.workspace_path = Path(workspace_path)
+        self.scaffolder = ProjectScaffolder()
 
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Generate code based on plan.
@@ -44,9 +46,18 @@ class CoderAgent(BaseAgent):
 
         self.logger.info("coding_started", iteration=iteration)
 
+        language = context.get('language', 'python')
+        problem_type = context.get('problem_type', 'general')
+
         # Create task workspace
         task_workspace = self.workspace_path / task_id
         task_workspace.mkdir(parents=True, exist_ok=True)
+
+        self.scaffolder.ensure_scaffold(
+            workspace=task_workspace,
+            language=language,
+            project_type=problem_type,
+        )
 
         # Build user message
         user_message = self.format_user_message(
@@ -54,6 +65,13 @@ class CoderAgent(BaseAgent):
             iteration=iteration,
             previous_errors=previous_errors or "None"
         )
+
+        if str(language).lower() in {"node", "javascript", "js"}:
+            user_message = (
+                "Runtime: Node.js (JavaScript).\n"
+                "Prefer built-in Node APIs (no external dependencies unless required).\n"
+                + user_message
+            )
 
         # Get coding tools
         tools = get_coding_tools()
@@ -209,7 +227,11 @@ class CoderAgent(BaseAgent):
             # Detect filename (e.g., "# app.py" or "File: app.py")
             if line.strip().startswith('#') or 'file:' in line.lower():
                 potential_filename = line.strip().lstrip('#').strip()
-                if potential_filename.endswith('.py') or '/' in potential_filename:
+                allowed_suffixes = (
+                    '.py', '.js', '.mjs', '.cjs', '.ts', '.json', '.md',
+                    '.yml', '.yaml', '.txt', '.toml'
+                )
+                if potential_filename.endswith(allowed_suffixes) or '/' in potential_filename:
                     current_file = potential_filename.split(':')[-1].strip()
 
             # Detect code block start/end
