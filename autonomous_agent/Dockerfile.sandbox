@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+# Install only essential packages
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1000 sandbox_user
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy only requirements (dependencies pre-installed)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Switch to non-root user
+USER sandbox_user
+
+# Default command (overridden by executor)
+CMD ["/bin/bash"]

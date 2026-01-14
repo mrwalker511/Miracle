@@ -1,0 +1,30 @@
+# Safety rules for AST scanning
+
+blocked_functions:
+  - eval
+  - exec
+  - compile
+  - __import__
+  - execfile
+
+blocked_modules:
+  - os.system
+  - subprocess.Popen
+  - subprocess.call
+  - subprocess.run
+  - pickle.loads
+  - marshal.loads
+
+require_approval:
+  - requests.get
+  - requests.post
+  - urllib.request.urlopen
+  - socket.connect
+  - open  # Outside sandbox
+
+bandit:
+  severity_threshold: "MEDIUM"  # Block MEDIUM and above
+  confidence_threshold: "MEDIUM"
+  exclude_tests:
+    - B404  # import subprocess (we need this for sandbox)
+    - B603  # subprocess without shell=True (safe usage)

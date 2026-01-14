@@ -1,0 +1,15 @@
+# Database configuration
+database:
+  host: localhost
+  port: 5432
+  name: autonomous_agent
+  user: agent_user
+  password: ${DB_PASSWORD}  # From environment
+
+  pool_size: 10
+  max_overflow: 20
+  pool_timeout: 30
+
+  pgvector:
+    dimension: 1536  # OpenAI embedding size
+    index_lists: 100  # For IVFFlat index

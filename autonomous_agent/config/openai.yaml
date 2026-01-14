@@ -1,0 +1,49 @@
+# OpenAI API Configuration (FLEXIBLE)
+openai:
+  api_key: ${OPENAI_API_KEY}  # From environment
+  organization: ${OPENAI_ORG_ID}  # Optional
+
+  # Model selection - FLEXIBLE TO USE ANY OPENAI MODEL
+  models:
+    # Primary agent models
+    planner: "gpt-4-turbo-preview"    # Can be: gpt-4, gpt-4-turbo, gpt-3.5-turbo, etc.
+    coder: "gpt-4-turbo-preview"      # Can be: any chat completion model
+    tester: "gpt-4-turbo-preview"     # Can be: any chat completion model
+    reflector: "gpt-4-turbo-preview"  # Can be: any chat completion model
+
+    # Embedding model
+    embedding: "text-embedding-3-large"  # Can be: text-embedding-3-small, text-embedding-ada-002
+
+  # API parameters
+  temperature: 0.2  # Low for code generation
+  max_tokens: 4096
+  top_p: 1.0
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+
+  # Rate limiting
+  requests_per_minute: 50
+  tokens_per_minute: 150000
+
+  # Retry logic
+  retry:
+    max_attempts: 3
+    backoff_factor: 2
+    initial_delay: 1
+
+  # Function calling
+  function_calling:
+    enabled: true
+    parallel_calls: true
+
+  # Streaming (future)
+  streaming:
+    enabled: false
+
+# Model fallback strategy
+fallback:
+  enabled: true
+  sequence:
+    - "gpt-4-turbo-preview"
+    - "gpt-4"
+    - "gpt-3.5-turbo-16k"

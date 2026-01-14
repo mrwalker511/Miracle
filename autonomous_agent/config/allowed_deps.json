@@ -1,0 +1,51 @@
+{
+  "description": "Curated allowlist of dependencies the agent can request",
+  "version": "1.0.0",
+  "categories": {
+    "web_frameworks": [
+      "flask",
+      "fastapi",
+      "django",
+      "starlette",
+      "uvicorn"
+    ],
+    "data_processing": [
+      "pandas",
+      "numpy",
+      "scipy",
+      "polars"
+    ],
+    "databases": [
+      "sqlalchemy",
+      "psycopg2-binary",
+      "pymongo",
+      "redis"
+    ],
+    "testing": [
+      "pytest",
+      "pytest-cov",
+      "hypothesis",
+      "unittest-mock"
+    ],
+    "utilities": [
+      "requests",
+      "pydantic",
+      "click",
+      "rich",
+      "python-dotenv"
+    ],
+    "async": [
+      "aiohttp",
+      "asyncio",
+      "httpx"
+    ]
+  },
+  "blocked": [
+    "os",
+    "subprocess",
+    "pty",
+    "pickle",
+    "marshal"
+  ],
+  "notes": "Agent must request approval even for allowlisted packages"
+}
