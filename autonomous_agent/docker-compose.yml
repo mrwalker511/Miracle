@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: agent_postgres
+    environment:
+      POSTGRES_USER: agent_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: autonomous_agent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Sandbox executor (future: run agent here)
+  sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox
+    container_name: agent_sandbox
+    volumes:
+      - ./sandbox:/workspace
+    network_mode: none  # Isolated network
+    mem_limit: 1g
+    cpus: 1
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    profiles:
+      - sandbox  # Don't start by default, only when needed
+
+volumes:
+  postgres_data:
