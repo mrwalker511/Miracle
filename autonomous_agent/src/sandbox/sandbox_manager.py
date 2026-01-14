@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from src.sandbox.docker_executor import DockerExecutor, DockerUnavailableError
 from src.sandbox.resource_limits import ResourceLimits
@@ -33,6 +33,12 @@ class SandboxManager:
         self.network_enabled = bool(network_cfg.get("enabled", False))
 
         self._docker: Optional[DockerExecutor] = None
+        self._docker_capabilities: Dict[str, bool] = {}
+
+        docker_cfg = self.sandbox_config.get("docker", {})
+        self._python_image = docker_cfg.get("python_image", "python:3.11-slim")
+        self._node_image = docker_cfg.get("node_image", "node:20-slim")
+
         if self.engine == "docker":
             try:
                 self._docker = DockerExecutor()
@@ -101,22 +107,27 @@ class SandboxManager:
         )
 
         if self._docker:
-            image = "python:3.11-slim" if command and command[0] == "python" else "node:20-slim"
-            result = self._docker.run(
-                image=image,
-                command=command,
-                workspace=workspace,
-                network_enabled=self.network_enabled,
-                mem_limit_mb=self.limits.memory_mb,
-                cpu_count=self.limits.cpu_count,
-                timeout_seconds=self.limits.execution_timeout,
-            )
-            return subprocess.CompletedProcess(
-                args=command,
-                returncode=result.exit_code,
-                stdout=result.stdout,
-                stderr=result.stderr,
-            )
+            is_python = bool(command) and command[0] == "python"
+            image = self._python_image if is_python else self._node_image
+
+            if is_python and not self._docker_supports_pytest(image=image, workspace=workspace):
+                self.logger.warning("docker_image_missing_pytest_falling_back_to_local", image=image)
+            else:
+                result = self._docker.run(
+                    image=image,
+                    command=command,
+                    workspace=workspace,
+                    network_enabled=self.network_enabled,
+                    mem_limit_mb=self.limits.memory_mb,
+                    cpu_count=self.limits.cpu_count,
+                    timeout_seconds=self.limits.execution_timeout,
+                )
+                return subprocess.CompletedProcess(
+                    args=command,
+                    returncode=result.exit_code,
+                    stdout=result.stdout,
+                    stderr=result.stderr,
+                )
 
         return subprocess.run(
             command,
@@ -125,6 +136,32 @@ class SandboxManager:
             text=True,
             timeout=self.limits.execution_timeout,
         )
+
+    def _docker_supports_pytest(self, *, image: str, workspace: Path) -> bool:
+        if image in self._docker_capabilities:
+            return self._docker_capabilities[image]
+
+        if not self._docker:
+            self._docker_capabilities[image] = False
+            return False
+
+        try:
+            result = self._docker.run(
+                image=image,
+                command=["python", "-c", "import pytest"],
+                workspace=workspace,
+                network_enabled=self.network_enabled,
+                mem_limit_mb=self.limits.memory_mb,
+                cpu_count=self.limits.cpu_count,
+                timeout_seconds=30,
+            )
+            ok = result.exit_code == 0
+        except Exception as e:  # pragma: no cover
+            self.logger.warning("docker_pytest_probe_failed", image=image, error=str(e))
+            ok = False
+
+        self._docker_capabilities[image] = ok
+        return ok
 
     def _run_command_and_parse_pytest(
         self,

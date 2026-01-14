@@ -303,6 +303,12 @@ class Orchestrator:
 
         passed = result.get('passed', False)
 
+        self.metrics.record_test_pass_rate(
+            task_id=self.task_id,
+            passed=passed,
+            iteration=self.current_iteration,
+        )
+
         self.logger.info(
             "testing_phase_completed",
             passed=passed

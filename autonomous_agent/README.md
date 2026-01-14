@@ -260,14 +260,14 @@ Track performance in database:
 
 ## 🚧 Current Limitations
 
-- **Language**: Python only (for now)
-- **Testing**: pytest only
+- **Languages**: Python and Node.js (JavaScript)
+- **Testing**: pytest (Python) and node:test (Node.js)
 - **Dependencies**: Manual installation required (no auto-install)
 - **Sandbox**: Basic Docker isolation (can be enhanced)
 
 ## 🔮 Future Enhancements
 
-- [ ] Multi-language support (JavaScript, Go, etc.)
+- [ ] More languages (TypeScript, Go, etc.)
 - [ ] Parallel execution of subtasks
 - [ ] Cost optimization (model selection based on task complexity)
 - [ ] Web UI dashboard

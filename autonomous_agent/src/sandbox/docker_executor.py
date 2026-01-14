@@ -34,7 +34,6 @@ class DockerExecutor:
         try:
             import docker  # type: ignore
 
-            self._docker = docker
             self.client = docker.from_env()
         except Exception as e:  # pragma: no cover
             raise DockerUnavailableError(str(e)) from e

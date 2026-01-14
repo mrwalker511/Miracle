@@ -87,10 +87,17 @@ class TesterAgent(BaseAgent):
             if tool_call["name"] != "create_test_file":
                 continue
             args = json.loads(tool_call["arguments"])
-            test_path = workspace / args["path"]
+
+            requested_path = str(args["path"])
+            content = str(args["content"])
+
+            if language in {"node", "javascript", "js"} and not requested_path.endswith((".js", ".mjs", ".cjs")):
+                requested_path = "test/generated.test.js"
+
+            test_path = workspace / requested_path
             test_path.parent.mkdir(parents=True, exist_ok=True)
-            test_path.write_text(args["content"], encoding="utf-8")
-            test_file = args["path"]
+            test_path.write_text(content, encoding="utf-8")
+            test_file = requested_path
             break
 
         if not test_file:
