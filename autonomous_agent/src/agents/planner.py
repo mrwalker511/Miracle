@@ -29,12 +29,16 @@ class PlannerAgent(BaseAgent):
         language = context.get('language')
         problem_type = context.get('problem_type')
 
+        problem_type_filter = problem_type
+        if not problem_type_filter or str(problem_type_filter).lower() == 'general':
+            problem_type_filter = None
+
         self.logger.info("planning_started", task=task_description)
 
         # Query similar patterns from memory
         pattern_matches = self.vector_store.find_similar_patterns(
             task_description=task_description,
-            problem_type=problem_type,
+            problem_type=problem_type_filter,
             limit=3
         )
 

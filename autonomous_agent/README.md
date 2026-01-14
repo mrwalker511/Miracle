@@ -74,8 +74,14 @@ Build an autonomous agent that:
 
 ### Running a Task
 
+Python task:
 ```bash
-python -m src.main run --task "Build a REST API for managing todo items with SQLite"
+python -m src.main run --language python --task "Build a REST API for managing todo items with SQLite"
+```
+
+Node.js task:
+```bash
+python -m src.main run --language node --task "Build a Node.js CLI tool that prints the current time"
 ```
 
 Or interactive mode:
