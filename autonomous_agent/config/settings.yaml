@@ -23,6 +23,11 @@ sandbox:
   network:
     enabled: false  # Require approval
     allowed_domains: []  # Populated after approval
+  docker:
+    # Optional: override the Docker images used for running tests.
+    # For Python you may want an image that already has pytest installed.
+    python_image: "python:3.11-slim"
+    node_image: "node:20-slim"
 
 safety:
   ast_scan: true

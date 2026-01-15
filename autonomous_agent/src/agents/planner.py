@@ -26,12 +26,19 @@ class PlannerAgent(BaseAgent):
         """
         task_description = context.get('task_description', '')
         goal = context.get('goal', '')
+        language = context.get('language')
+        problem_type = context.get('problem_type')
+
+        problem_type_filter = problem_type
+        if not problem_type_filter or str(problem_type_filter).lower() == 'general':
+            problem_type_filter = None
 
         self.logger.info("planning_started", task=task_description)
 
         # Query similar patterns from memory
         pattern_matches = self.vector_store.find_similar_patterns(
             task_description=task_description,
+            problem_type=problem_type_filter,
             limit=3
         )
 
@@ -44,6 +51,13 @@ class PlannerAgent(BaseAgent):
             goal=goal,
             pattern_matches=pattern_context
         )
+
+        if str(language).lower() in {"node", "javascript", "js"}:
+            user_message = (
+                "Runtime: Node.js (JavaScript).\n"
+                "Plan should assume a Node project, include a package.json if needed, and prefer node:test for tests.\n\n"
+                + user_message
+            )
 
         # Call LLM
         messages = self.build_messages(user_message)

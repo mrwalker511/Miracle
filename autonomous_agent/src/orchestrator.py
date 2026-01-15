@@ -2,6 +2,7 @@
 
 import time
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -14,6 +15,8 @@ from src.memory.vector_store import VectorStore
 from src.llm.openai_client import OpenAIClient
 from src.ui.logger import get_logger
 from src.utils.circuit_breaker import CircuitBreaker
+from src.utils.metrics_collector import MetricsCollector
+from src.utils.state_saver import StateSaver
 
 
 class OrchestrationState(Enum):
@@ -40,7 +43,9 @@ class Orchestrator:
         db_manager: DatabaseManager,
         vector_store: VectorStore,
         openai_client: OpenAIClient,
-        max_iterations: int = 15
+        max_iterations: int = 15,
+        problem_type: str = "general",
+        language: str = "python",
     ):
         """Initialize the orchestrator.
 
@@ -73,6 +78,8 @@ class Orchestrator:
             'task_id': task_id,
             'task_description': task_description,
             'goal': goal,
+            'problem_type': problem_type,
+            'language': language,
             'plan': None,
             'code_files': {},
             'test_results': {},
@@ -82,9 +89,22 @@ class Orchestrator:
 
         # Initialize agents
         prompts = config.get('prompts', {})
+        workspace_root = (
+            config.get('settings', {})
+            .get('sandbox', {})
+            .get('workspace_root', './sandbox/workspace')
+        )
+
         self.planner = PlannerAgent('planner', openai_client, vector_store, prompts)
-        self.coder = CoderAgent('coder', openai_client, vector_store, prompts)
-        self.tester = TesterAgent('tester', openai_client, vector_store, prompts)
+        self.coder = CoderAgent('coder', openai_client, vector_store, prompts, workspace_path=workspace_root)
+        self.tester = TesterAgent(
+            'tester',
+            openai_client,
+            vector_store,
+            prompts,
+            workspace_path=workspace_root,
+            config=config,
+        )
         self.reflector = ReflectorAgent('reflector', openai_client, vector_store, prompts)
 
         # Circuit breaker
@@ -93,6 +113,9 @@ class Orchestrator:
             warning_threshold=circuit_config.get('warning_threshold', 12),
             hard_stop=circuit_config.get('hard_stop', 15)
         )
+
+        self.metrics = MetricsCollector(db=db_manager, openai_client=openai_client)
+        self.state_saver = StateSaver()
 
         self.logger.info(
             "orchestrator_initialized",
@@ -115,6 +138,9 @@ class Orchestrator:
         while self.current_iteration < self.max_iterations:
             self.current_iteration += 1
             iteration_start = time.time()
+
+            self.metrics.start_iteration()
+            self.context['iteration'] = self.current_iteration
 
             self.logger.info(
                 "iteration_started",
@@ -179,11 +205,15 @@ class Orchestrator:
                 state=self.state.value
             )
 
-            # Store metric
+            # Store metrics
             self.db.store_metric(
                 self.task_id,
                 'iteration_duration',
                 iteration_duration
+            )
+            self.metrics.record_iteration_tokens(
+                task_id=self.task_id,
+                iteration=self.current_iteration,
             )
 
             # Checkpoint every 5 iterations
@@ -273,6 +303,12 @@ class Orchestrator:
 
         passed = result.get('passed', False)
 
+        self.metrics.record_test_pass_rate(
+            task_id=self.task_id,
+            passed=passed,
+            iteration=self.current_iteration,
+        )
+
         self.logger.info(
             "testing_phase_completed",
             passed=passed
@@ -315,7 +351,7 @@ class Orchestrator:
         self.logger.info("reflection_phase_completed")
 
     def _save_checkpoint(self):
-        """Save orchestration state to database."""
+        """Save orchestration state to database and workspace."""
         self.logger.info("checkpoint_saved", iteration=self.current_iteration)
 
         self.db.update_task_status(
@@ -323,6 +359,18 @@ class Orchestrator:
             'running',
             total_iterations=self.current_iteration
         )
+
+        workspace = self.context.get('workspace')
+        if workspace:
+            try:
+                self.state_saver.save(
+                    workspace=Path(workspace),
+                    state=self.state.value,
+                    iteration=self.current_iteration,
+                    context=self.context,
+                )
+            except Exception as e:
+                self.logger.warning("checkpoint_write_failed", error=str(e))
 
     def _finalize(self) -> Dict[str, Any]:
         """Finalize the orchestration and return results.
