@@ -26,6 +26,18 @@ class TesterAgent(BaseAgent):
         self.workspace_path = Path(workspace_path)
         self.sandbox = SandboxManager(config or {})
 
+    def _resolve_in_workspace(self, workspace: Path, path: str) -> Path:
+        if not path:
+            raise ValueError("Path is required")
+
+        workspace_root = workspace.resolve()
+        candidate = (workspace_root / path).resolve()
+
+        if candidate == workspace_root or workspace_root in candidate.parents:
+            return candidate
+
+        raise ValueError(f"Path escapes workspace: {path}")
+
     def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         code_files = context.get("code_files", {})
         task_id = str(context.get("task_id", ""))
@@ -84,17 +96,37 @@ class TesterAgent(BaseAgent):
         test_file: Optional[str] = None
 
         for tool_call in tool_calls:
-            if tool_call["name"] != "create_test_file":
+            if tool_call.get("name") != "create_test_file":
                 continue
-            args = json.loads(tool_call["arguments"])
 
-            requested_path = str(args["path"])
-            content = str(args["content"])
+            arguments_raw = tool_call.get("arguments", {})
+            if isinstance(arguments_raw, str):
+                try:
+                    args = json.loads(arguments_raw) if arguments_raw else {}
+                except json.JSONDecodeError:
+                    args = {}
+            elif isinstance(arguments_raw, dict):
+                args = arguments_raw
+            else:
+                args = {}
 
-            if language in {"node", "javascript", "js"} and not requested_path.endswith((".js", ".mjs", ".cjs")):
+            requested_path = str(args.get("path") or "")
+            content = args.get("content")
+            if content is None:
+                continue
+            content = str(content)
+
+            if language in {"node", "javascript", "js"}:
                 requested_path = "test/generated.test.js"
+            elif not requested_path:
+                requested_path = "test_generated.py"
 
-            test_path = workspace / requested_path
+            try:
+                test_path = self._resolve_in_workspace(workspace, requested_path)
+            except ValueError:
+                requested_path = "test/generated.test.js" if language in {"node", "javascript", "js"} else "test_generated.py"
+                test_path = self._resolve_in_workspace(workspace, requested_path)
+
             test_path.parent.mkdir(parents=True, exist_ok=True)
             test_path.write_text(content, encoding="utf-8")
             test_file = requested_path
@@ -159,7 +191,7 @@ class TesterAgent(BaseAgent):
         else:
             test_file = "test_generated.py"
 
-        test_path = workspace / test_file
+        test_path = self._resolve_in_workspace(workspace, test_file)
         test_path.parent.mkdir(parents=True, exist_ok=True)
         test_path.write_text(test_content, encoding="utf-8")
         return test_file

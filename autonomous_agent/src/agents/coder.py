@@ -121,8 +121,18 @@ class CoderAgent(BaseAgent):
         Returns:
             Execution result
         """
-        tool_name = tool_call['name']
-        arguments = json.loads(tool_call['arguments'])
+        tool_name = tool_call.get('name')
+
+        arguments_raw = tool_call.get('arguments', {})
+        if isinstance(arguments_raw, str):
+            try:
+                arguments = json.loads(arguments_raw) if arguments_raw else {}
+            except json.JSONDecodeError:
+                arguments = {}
+        elif isinstance(arguments_raw, dict):
+            arguments = arguments_raw
+        else:
+            arguments = {}
 
         self.logger.debug("executing_tool", tool=tool_name, args=arguments)
 
@@ -139,6 +149,19 @@ class CoderAgent(BaseAgent):
 
         return {'error': f'Unknown tool: {tool_name}'}
 
+    def _resolve_in_workspace(self, workspace: Path, path: str) -> Path:
+        """Resolve a user-provided path within the workspace."""
+        if not path:
+            raise ValueError('Path is required')
+
+        workspace_root = workspace.resolve()
+        candidate = (workspace_root / path).resolve()
+
+        if candidate == workspace_root or workspace_root in candidate.parents:
+            return candidate
+
+        raise ValueError(f'Path escapes workspace: {path}')
+
     def _create_file(self, workspace: Path, path: str, content: str) -> Dict[str, Any]:
         """Create a file in the workspace.
 
@@ -150,7 +173,17 @@ class CoderAgent(BaseAgent):
         Returns:
             Result dictionary
         """
-        file_path = workspace / path
+        if not path:
+            return {'error': 'Path is required'}
+        if content is None:
+            return {'error': 'Content is required'}
+
+        try:
+            file_path = self._resolve_in_workspace(workspace, path)
+        except ValueError as e:
+            self.logger.error("file_creation_failed", path=path, error=str(e))
+            return {'error': str(e)}
+
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
@@ -177,7 +210,14 @@ class CoderAgent(BaseAgent):
         Returns:
             File content
         """
-        file_path = workspace / path
+        if not path:
+            return {'error': 'Path is required'}
+
+        try:
+            file_path = self._resolve_in_workspace(workspace, path)
+        except ValueError as e:
+            self.logger.error("file_read_failed", path=path, error=str(e))
+            return {'error': str(e)}
 
         try:
             content = file_path.read_text(encoding='utf-8')
@@ -223,29 +263,40 @@ class CoderAgent(BaseAgent):
         current_code = []
         in_code_block = False
 
+        allowed_suffixes = (
+            '.py', '.js', '.mjs', '.cjs', '.ts', '.json', '.md',
+            '.yml', '.yaml', '.txt', '.toml'
+        )
+
         for line in lines:
-            # Detect filename (e.g., "# app.py" or "File: app.py")
-            if line.strip().startswith('#') or 'file:' in line.lower():
-                potential_filename = line.strip().lstrip('#').strip()
-                allowed_suffixes = (
-                    '.py', '.js', '.mjs', '.cjs', '.ts', '.json', '.md',
-                    '.yml', '.yaml', '.txt', '.toml'
-                )
-                if potential_filename.endswith(allowed_suffixes) or '/' in potential_filename:
-                    current_file = potential_filename.split(':')[-1].strip()
+            stripped = line.strip()
 
             # Detect code block start/end
-            if line.strip().startswith('```'):
+            if stripped.startswith('```'):
                 if in_code_block and current_code:
-                    # End of code block
                     content = '\n'.join(current_code)
                     if current_file:
                         code_files[current_file] = content
                         self._create_file(workspace, current_file, content)
                     current_code = []
                     current_file = None
+
                 in_code_block = not in_code_block
-            elif in_code_block:
+                continue
+
+            if in_code_block:
                 current_code.append(line)
+                continue
+
+            # Detect filename lines outside code blocks (e.g., "# app.py" or "File: app.py")
+            if stripped.startswith('#') or 'file:' in stripped.lower():
+                potential_filename = stripped.lstrip('#').strip()
+                if potential_filename.endswith(allowed_suffixes) or '/' in potential_filename:
+                    current_file = potential_filename.split(':')[-1].strip()
+
+        if in_code_block and current_code and current_file:
+            content = '\n'.join(current_code)
+            code_files[current_file] = content
+            self._create_file(workspace, current_file, content)
 
         return code_files
