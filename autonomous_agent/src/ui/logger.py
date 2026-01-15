@@ -1,12 +1,13 @@
 """Structured logging configuration using structlog."""
 
+from __future__ import annotations
+
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import structlog
-from pythonjsonlogger import jsonlogger
 
 
 class AgentLogger:
@@ -24,14 +25,15 @@ class AgentLogger:
         """Initialize the logger (only once)."""
         if not self._initialized:
             self._initialized = True
-            self.logger = None
+            self.logger: Optional[structlog.stdlib.BoundLogger] = None
 
     def setup(
         self,
         log_level: str = "INFO",
         log_format: str = "json",
         file_path: str = "logs/agent.log",
-        console_output: bool = True
+        console_output: bool = True,
+        file_output: bool = True,
     ):
         """Configure structured logging.
 
@@ -40,45 +42,56 @@ class AgentLogger:
             log_format: Format type ("json" or "text")
             file_path: Path to log file
             console_output: Whether to output to console
+            file_output: Whether to output to file
         """
-        # Create logs directory if it doesn't exist
-        log_file = Path(file_path)
-        log_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Configure structlog
+        processors = [
+            structlog.stdlib.filter_by_level,
+            structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+            structlog.processors.UnicodeDecoder(),
+        ]
+
+        if log_format == "json":
+            processors.append(structlog.processors.JSONRenderer())
+        else:
+            processors.append(structlog.dev.ConsoleRenderer())
+
         structlog.configure(
-            processors=[
-                structlog.stdlib.filter_by_level,
-                structlog.stdlib.add_logger_name,
-                structlog.stdlib.add_log_level,
-                structlog.stdlib.PositionalArgumentsFormatter(),
-                structlog.processors.TimeStamper(fmt="iso"),
-                structlog.processors.StackInfoRenderer(),
-                structlog.processors.format_exc_info,
-                structlog.processors.UnicodeDecoder(),
-                structlog.processors.JSONRenderer() if log_format == "json"
-                else structlog.dev.ConsoleRenderer()
-            ],
+            processors=processors,
             context_class=dict,
             logger_factory=structlog.stdlib.LoggerFactory(),
             cache_logger_on_first_use=True,
         )
 
-        # Set up standard library logging
-        logging.basicConfig(
-            format="%(message)s",
-            stream=sys.stdout,
-            level=getattr(logging, log_level.upper()),
-        )
+        level = getattr(logging, log_level.upper(), logging.INFO)
 
-        # Create file handler with JSON formatting
-        if log_format == "json":
-            file_handler = logging.FileHandler(file_path)
-            json_formatter = jsonlogger.JsonFormatter(
-                '%(timestamp)s %(level)s %(name)s %(message)s'
-            )
-            file_handler.setFormatter(json_formatter)
-            logging.getLogger().addHandler(file_handler)
+        root_logger = logging.getLogger()
+        root_logger.setLevel(level)
+
+        for handler in list(root_logger.handlers):
+            root_logger.removeHandler(handler)
+
+        formatter = logging.Formatter("%(message)s")
+
+        if console_output:
+            console_handler = logging.StreamHandler(stream=sys.stdout)
+            console_handler.setLevel(level)
+            console_handler.setFormatter(formatter)
+            root_logger.addHandler(console_handler)
+
+        if file_output and file_path:
+            log_file = Path(file_path)
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setLevel(level)
+            file_handler.setFormatter(formatter)
+            root_logger.addHandler(file_handler)
 
         self.logger = structlog.get_logger()
 
@@ -92,7 +105,7 @@ class AgentLogger:
             Bound logger instance
         """
         if self.logger is None:
-            self.setup()  # Initialize with defaults if not already set up
+            self.setup()
 
         if name:
             return self.logger.bind(component=name)
@@ -103,22 +116,15 @@ class AgentLogger:
         task_id: str,
         iteration: int,
         phase: str,
-        **kwargs
+        **kwargs,
     ):
-        """Log the start of an iteration.
-
-        Args:
-            task_id: UUID of the task
-            iteration: Iteration number
-            phase: Current phase (planning, coding, testing, reflecting)
-            **kwargs: Additional context
-        """
+        """Log the start of an iteration."""
         self.get_logger().info(
             "iteration_start",
             task_id=task_id,
             iteration=iteration,
             phase=phase,
-            **kwargs
+            **kwargs,
         )
 
     def log_iteration_complete(
@@ -128,18 +134,9 @@ class AgentLogger:
         phase: str,
         duration: float,
         success: bool,
-        **kwargs
+        **kwargs,
     ):
-        """Log the completion of an iteration.
-
-        Args:
-            task_id: UUID of the task
-            iteration: Iteration number
-            phase: Current phase
-            duration: Time taken in seconds
-            success: Whether the iteration succeeded
-            **kwargs: Additional context
-        """
+        """Log the completion of an iteration."""
         self.get_logger().info(
             "iteration_complete",
             task_id=task_id,
@@ -147,7 +144,7 @@ class AgentLogger:
             phase=phase,
             duration=duration,
             success=success,
-            **kwargs
+            **kwargs,
         )
 
     def log_error(
@@ -156,24 +153,16 @@ class AgentLogger:
         error_message: str,
         task_id: str = None,
         iteration: int = None,
-        **kwargs
+        **kwargs,
     ):
-        """Log an error with context.
-
-        Args:
-            error_type: Type of error
-            error_message: Error message
-            task_id: Optional task ID
-            iteration: Optional iteration number
-            **kwargs: Additional context
-        """
+        """Log an error with context."""
         self.get_logger().error(
             "error_occurred",
             error_type=error_type,
             error_message=error_message,
             task_id=task_id,
             iteration=iteration,
-            **kwargs
+            **kwargs,
         )
 
     def log_metric(
@@ -181,22 +170,15 @@ class AgentLogger:
         metric_type: str,
         value: float,
         task_id: str = None,
-        **kwargs
+        **kwargs,
     ):
-        """Log a metric.
-
-        Args:
-            metric_type: Type of metric
-            value: Metric value
-            task_id: Optional task ID
-            **kwargs: Additional context
-        """
+        """Log a metric."""
         self.get_logger().info(
             "metric",
             metric_type=metric_type,
             value=value,
             task_id=task_id,
-            **kwargs
+            **kwargs,
         )
 
     def log_approval_request(
@@ -204,48 +186,34 @@ class AgentLogger:
         approval_type: str,
         details: Dict[str, Any],
         task_id: str = None,
-        **kwargs
+        **kwargs,
     ):
-        """Log an approval request.
-
-        Args:
-            approval_type: Type of approval requested
-            details: Details of the request
-            task_id: Optional task ID
-            **kwargs: Additional context
-        """
+        """Log an approval request."""
         self.get_logger().info(
             "approval_request",
             approval_type=approval_type,
             details=details,
             task_id=task_id,
-            **kwargs
+            **kwargs,
         )
 
 
-# Singleton instance
 def get_logger(name: str = None) -> structlog.stdlib.BoundLogger:
-    """Get a logger instance.
+    """Get a logger instance."""
 
-    Args:
-        name: Optional component name
-
-    Returns:
-        Bound logger instance
-    """
     return AgentLogger().get_logger(name)
 
 
 def setup_logging(config: Dict[str, Any]):
-    """Setup logging from configuration.
+    """Setup logging from configuration."""
 
-    Args:
-        config: Logging configuration dictionary
-    """
+    outputs = config.get("outputs", ["console"])
+
     logger = AgentLogger()
     logger.setup(
-        log_level=config.get('level', 'INFO'),
-        log_format=config.get('format', 'json'),
-        file_path=config.get('file_path', 'logs/agent.log'),
-        console_output='console' in config.get('outputs', ['console'])
+        log_level=config.get("level", "INFO"),
+        log_format=config.get("format", "json"),
+        file_path=config.get("file_path", "logs/agent.log"),
+        console_output="console" in outputs,
+        file_output="file" in outputs,
     )

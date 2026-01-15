@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from src.sandbox.docker_executor import DockerExecutor, DockerUnavailableError
 from src.sandbox.resource_limits import ResourceLimits
