@@ -48,7 +48,9 @@ class ProjectScaffolder:
             return {"scaffolded": False, "reason": "workspace_not_empty"}
 
         language_norm = (language or "python").lower()
-        if language_norm in {"node", "javascript", "js"}:
+        # Normalize JavaScript variants to "node" for consistency
+        if language_norm in {"node", "javascript", "js", "mjs", "cjs"}:
+            language_norm = "node"
             self._scaffold_node(workspace)
         else:
             self._scaffold_python(workspace)
