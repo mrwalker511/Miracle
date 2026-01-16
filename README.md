@@ -32,15 +32,23 @@ This project includes comprehensive **Agent.MD** documentation to enable any AI 
 
 ### 🏗️ Architecture Documentation
 
-**[ARCHITECTURE.md](ARCHITECTURE.md)** - Deep technical architecture
-- High-level system design
-- Architectural patterns (State Machine, Agent, Tool Use, etc.)
-- Component architecture details
-- Data flow diagrams
-- Database schema design
-- LLM integration architecture
-- Security architecture
-- Technical decisions and rationale
+**[docs/architecture/](docs/architecture/)** - Optimized technical architecture (replaces ARCHITECTURE.md)
+- **10 focused files** for better AI agent efficiency
+- **Concise modules** (200-500 lines each) instead of 1622-line monolith
+- **Better organization** with clear separation of concerns
+- **Improved navigation** with numbered prefixes
+
+**Key Files:**
+- [01-system-overview.md](docs/architecture/01-system-overview.md) - High-level architecture
+- [02-architectural-patterns.md](docs/architecture/02-architectural-patterns.md) - Design patterns
+- [03-component-architecture.md](docs/architecture/03-component-architecture.md) - Component details
+- [04-data-flow.md](docs/architecture/04-data-flow.md) - Data movement
+- [05-database-architecture.md](docs/architecture/05-database-architecture.md) - Schema design
+- [06-llm-integration.md](docs/architecture/06-llm-integration.md) - OpenAI integration
+- [07-security-architecture.md](docs/architecture/07-security-architecture.md) - Security measures
+- [08-scalability-performance.md](docs/architecture/08-scalability-performance.md) - Performance strategies
+- [09-deployment-architecture.md](docs/architecture/09-deployment-architecture.md) - Deployment options
+- [10-technical-decisions.md](docs/architecture/10-technical-decisions.md) - Architectural decisions
 
 ### 🔄 Functionality Documentation
 
