@@ -1,37 +1,38 @@
 # Core dependencies
-python-dotenv==1.0.0
-pyyaml==6.0.1
+python-dotenv>=1.0.0
+pyyaml>=6.0.1
 
 # OpenAI (flexible model support)
-openai==1.12.0
+# Changed to >= to support litellm and other modern tools
+openai>=1.12.0
 
 # Database
-psycopg2-binary==2.9.9
-sqlalchemy==2.0.25
-pgvector==0.2.4
+psycopg2-binary>=2.9.9
+sqlalchemy>=2.0.25
+pgvector>=0.2.4
 
 # Testing
-pytest==8.0.0
-pytest-cov==4.1.0
-pytest-timeout==2.2.0
-hypothesis==6.98.0
+pytest>=8.0.0
+pytest-cov>=4.1.0
+pytest-timeout>=2.2.0
+hypothesis>=6.98.0
 
 # Code analysis
-bandit==1.7.6
-pylint==3.0.3
+bandit>=1.7.6
+pylint>=3.0.3
 
 # Docker
-docker==7.0.0
+docker>=7.0.0
 
 # CLI & UI
-click==8.1.7
-rich==13.7.0
-prompt-toolkit==3.0.43
+click>=8.1.7
+rich>=13.7.0
+prompt-toolkit>=3.0.43
 
 # Logging
-structlog==24.1.0
-python-json-logger==2.0.7
+structlog>=24.1.0
+python-json-logger>=2.0.7
 
 # Utilities
-tenacity==8.2.3  # Retry logic
-tiktoken==0.6.0  # Token counting
+tenacity>=8.2.3  # Retry logic
+tiktoken>=0.6.0  # Token counting

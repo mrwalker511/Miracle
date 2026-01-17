@@ -38,7 +38,14 @@ def cli():
 )
 @click.option("--language", "-l", default=None, help="Runtime language (python, node)")
 @click.option("--max-iterations", "-m", default=15, help="Maximum iterations")
-def run(task: str, problem_type: str, language: str | None, max_iterations: int):
+@click.option("--workspace", "-w", default=None, help="Path to workspace directory (overrides config)")
+def run(
+    task: str,
+    problem_type: str,
+    language: str | None,
+    max_iterations: int,
+    workspace: str | None,
+):
     """Start a new autonomous coding task."""
 
     console.print(
@@ -53,6 +60,18 @@ def run(task: str, problem_type: str, language: str | None, max_iterations: int)
     try:
         config_loader = get_config_loader()
         configs = config_loader.load_all_configs()
+
+        # Override workspace if provided via CLI
+        if workspace:
+            workspace_path = Path(workspace).resolve()
+            if "settings" not in configs:
+                configs["settings"] = {}
+            if "sandbox" not in configs["settings"]:
+                configs["settings"]["sandbox"] = {}
+            
+            configs["settings"]["sandbox"]["workspace_root"] = str(workspace_path)
+            console.print(f"[green]Using workspace: {workspace_path}[/green]")
+
     except Exception as e:
         console.print(f"[red]Error loading configuration: {e}[/red]")
         return
