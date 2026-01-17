@@ -4,11 +4,11 @@
 
 ---
 
-## 📚 Architecture Documentation Structure
+## Architecture Documentation Structure
 
 This documentation is organized into focused, concise modules for better AI agent consumption:
 
-### 🏗️ Core Architecture
+### Core Architecture
 
 1. **[01-system-overview.md](01-system-overview.md)** - High-level architecture and core philosophy
 2. **[02-architectural-patterns.md](02-architectural-patterns.md)** - Core design patterns used
@@ -26,23 +26,23 @@ This documentation is organized into focused, concise modules for better AI agen
 
 ---
 
-## 🎯 Key Benefits of This Structure
+## Key Benefits of This Structure
 
 **For AI Agents:**
-- ✅ **Focused content**: Each file covers a specific topic
-- ✅ **Optimal length**: Files are concise (200-500 lines) for context windows
-- ✅ **Clear organization**: Logical progression from high-level to details
-- ✅ **Easy navigation**: Simple file structure with numbered prefixes
+- **Focused content**: Each file covers a specific topic
+- **Optimal length**: Files are concise (200-500 lines) for context windows
+- **Clear organization**: Logical progression from high-level to details
+- **Easy navigation**: Simple file structure with numbered prefixes
 
 **For Human Developers:**
-- ✅ **Quick reference**: Find specific information easily
-- ✅ **Better maintainability**: Update focused areas without affecting others
-- ✅ **Improved collaboration**: Clear separation of concerns
-- ✅ **Better searchability**: Smaller files are easier to search
+- **Quick reference**: Find specific information easily
+- **Better maintainability**: Update focused areas without affecting others
+- **Improved collaboration**: Clear separation of concerns
+- **Better searchability**: Smaller files are easier to search
 
 ---
 
-## 📋 Documentation Guidelines
+## Documentation Guidelines
 
 **For Contributors:**
 - Keep files focused on a single topic
@@ -59,7 +59,7 @@ This documentation is organized into focused, concise modules for better AI agen
 
 ---
 
-## 🔄 Migration from Monolithic Documentation
+## Migration from Monolithic Documentation
 
 This structure replaces the original `ARCHITECTURE.md` (1622 lines) with:
 - 10 focused files
