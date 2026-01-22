@@ -110,7 +110,7 @@ Read all topic files:
 - Testing strategies
 
 ### Level 5: Comprehensive (6 hours)
-Add comprehensive references:
+Add comprehensive references from **[docs/archive/](../archive/)**:
 - `ARCHITECTURE.md` - Complete technical architecture
 - `FUNCTIONALITY.md` - System behavior details
 - `DEPENDENCIES.md` - All dependencies and setup
@@ -142,18 +142,21 @@ Extensive cross-linking between related topics.
 
 ## 🔗 Relationship to Other Docs
 
-### Complementary (Unchanged)
+### Complementary
 
 **Comprehensive References** (for deep dives):
-- `ARCHITECTURE.md` - Complete technical architecture (409 lines)
-- `FUNCTIONALITY.md` - System behavior and flows (560+ lines)
-- `DEPENDENCIES.md` - Setup and configuration (detailed)
-- `README.md` - Project overview
+- **[docs/architecture/](../architecture/)** - Complete technical architecture
+- **[docs/agents/](README.md)** - System behavior and flows
+- **[getting-started.md](getting-started.md)** - Setup and configuration
+- **[README.md](../../README.md)** - Project overview
 
-**Historical Archives**:
-- `docs/archive/AGENT-EXECUTION.md` - Legacy execution guide
-- `docs/archive/AGENT-PLANNING.md` - Legacy planning guide
-- `docs/archive/autonomous_coding_agent_handoff.md` - Legacy handoff doc
+**Historical Archives** (in `docs/archive/`):
+- `ARCHITECTURE.md` - Legacy comprehensive architecture
+- `FUNCTIONALITY.md` - Legacy system behavior
+- `DEPENDENCIES.md` - Legacy dependencies
+- `AGENT-EXECUTION.md` - Legacy execution guide
+- `AGENT-PLANNING.md` - Legacy planning guide
+- `autonomous_coding_agent_handoff.md` - Legacy handoff doc
 
 ### Hierarchy
 
@@ -164,7 +167,9 @@ AGENTS.md (agent entry point)
    ↓
 docs/agents/*.md (focused topics)
    ↓
-ARCHITECTURE.md, FUNCTIONALITY.md (comprehensive references)
+docs/architecture/*.md (architecture topics)
+   ↓
+docs/archive/*.md (historical references)
    ↓
 Source code (implementation)
 ```

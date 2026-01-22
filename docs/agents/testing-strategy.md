@@ -12,7 +12,7 @@ Testing approach for the Miracle autonomous coding agent system.
 - Non-deterministic LLM outputs
 - Complex state machine interactions
 - Expensive API calls
-- Docker container management
+- Docker container management (optional)
 
 ---
 

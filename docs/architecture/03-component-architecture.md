@@ -48,7 +48,7 @@ class Orchestrator:
 context = {
     "task_id": UUID,
     "task_description": str,
-    "language": str,  # "python" or "node"
+    "language": str,  # e.g., "python", "node", "go", etc.
     "workspace": Path,
     "current_iteration": int,
     "max_iterations": int,
@@ -145,10 +145,14 @@ Create an implementation plan.
 
 **Language Support**:
 
+The system is language-agnostic and can support any language by providing the appropriate scaffolding and test runners. Examples:
+
 | Language | Scaffolding | Test Framework | Dependency Manager |
 |----------|-------------|----------------|-------------------|
 | Python | `__init__.py`, `main.py`, `tests/` | pytest + hypothesis | pip + requirements.txt |
 | Node.js | `package.json`, `index.js`, `test/` | jest | npm |
+| Go | `go.mod`, `main.go`, `*_test.go` | go test | go mod |
+| ... | Custom scaffolding | Any framework | Any manager |
 
 ### TesterAgent
 
@@ -403,7 +407,7 @@ async def _generate_embedding(self, text: str) -> List[float]:
                       │ ✅ Approved
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                     Layer 4: Docker Sandbox                  │
+│                Layer 4: Docker Sandbox (Optional)            │
 │  - Non-root user (sandbox_user)                             │
 │  - Resource limits: 1 CPU, 1GB RAM, 5min timeout            │
 │  - Network disabled by default                               │

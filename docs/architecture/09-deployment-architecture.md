@@ -33,7 +33,7 @@
 # Install dependencies
 pip install -r requirements.txt
 
-# Start services
+# Start services (Docker is optional; PostgreSQL 14+ required)
 docker-compose up -d
 
 # Initialize database

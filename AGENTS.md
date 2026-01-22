@@ -1,7 +1,7 @@
 # AGENTS.md
 
 **Project**: Miracle - Autonomous Coding Agent  
-**Language**: Python 3.11+  
+**System Language**: Python 3.11+ (Supports any generated language)  
 **Entry Point**: `src/main.py` (CLI)  
 **Package Manager**: pip (venv)
 
@@ -47,10 +47,12 @@ Progressive disclosure - start with what you need, dig deeper as needed:
 ## Comprehensive References
 
 For deep technical details, see:
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete technical architecture
-- **[FUNCTIONALITY.md](FUNCTIONALITY.md)** - System behavior and flows
-- **[DEPENDENCIES.md](DEPENDENCIES.md)** - Setup and configuration
+- **[docs/architecture/](docs/architecture/)** - Complete technical architecture
+- **[docs/agents/](docs/agents/)** - Detailed agent behaviors and workflows
 - **[README.md](README.md)** - Project overview
+
+Legacy comprehensive documents are preserved in **[docs/archive/](docs/archive/)**:
+- `ARCHITECTURE.md`, `FUNCTIONALITY.md`, `DEPENDENCIES.md`
 
 ---
 

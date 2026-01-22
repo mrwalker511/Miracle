@@ -34,37 +34,30 @@ Navigate by what you need to accomplish:
 
 ### 🔄 Functionality Documentation
 
-**[FUNCTIONALITY.md](FUNCTIONALITY.md)** - System behavior and operational flows
+**[docs/agents/agent-behaviors.md](docs/agents/agent-behaviors.md)** - Agent behaviors and operational flows
 - Core functionality explained
 - Iteration loop behavior
 - Agent behaviors (Planner, Coder, Tester, Reflector)
 - Tool use mechanics
-- Memory and learning system
-- Safety mechanisms
-- Error handling strategies
-- User interaction flows
-- Edge cases and limitations
-- Observability and debugging
 
 ### 📦 Dependencies & Setup
 
-**[DEPENDENCIES.md](DEPENDENCIES.md)** - Setup, configuration, and dependency management
+**[docs/agents/getting-started.md](docs/agents/getting-started.md)** - Setup, configuration, and dependency management
 - System requirements
 - Installation guide (all platforms)
 - Python dependencies
 - Configuration management
 - Database setup
-- Docker setup
+- Docker setup (optional)
 - Dependency approval system
 - Environment variables
 - Troubleshooting guide
-- Upgrade procedures
 
 ---
 
 ## 🚀 Quick Start
 
-For detailed setup instructions, see [DEPENDENCIES.md](DEPENDENCIES.md).
+For detailed setup instructions, see [docs/agents/getting-started.md](docs/agents/getting-started.md).
 
 ```bash
 # 1. Clone and navigate
@@ -80,13 +73,13 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env and add your OPENAI_API_KEY
 
-# 4. Start database
+# 4. Start database (Docker is optional; PostgreSQL 14+ required)
 docker-compose up -d postgres
 
 # 5. Initialize database
 python scripts/setup_db.py
 
-# 6. Run your first task
+# 6. Run your first task (Supports any language)
 python -m src.main run --task "Write a function to calculate fibonacci" --language python
 ```
 
@@ -107,9 +100,9 @@ The Autonomous Coding Agent accepts high-level coding tasks and autonomously:
 
 - **Autonomous Loop**: Operates continuously until success or max iterations
 - **Learning System**: Stores failures and patterns with vector embeddings for retrieval
-- **Multi-layer Safety**: AST scanning, Bandit SAST, user approval, Docker sandboxing
+- **Multi-layer Safety**: AST scanning, Bandit SAST, user approval, Docker sandboxing (optional)
 - **Memory System**: PostgreSQL + pgvector for similarity search
-- **Multi-language**: Python (primary), Node.js (secondary)
+- **Language Agnostic**: Supports Python, Node.js, and any other requested language
 - **Resumable**: Checkpoint/resume support for interrupted tasks
 
 ---
@@ -136,8 +129,8 @@ When contributing to this project:
 ## 🔗 Additional Resources
 
 - **Database Schema**: See `scripts/init_db.sql`
-- **Archived Documentation**: Legacy agent docs moved to `docs/archive/` (historical reference)
+- **Archived Documentation**: Legacy comprehensive documents moved to `docs/archive/` (historical reference: `ARCHITECTURE.md`, `FUNCTIONALITY.md`, `DEPENDENCIES.md`)
 
 ---
 
-**Built with**: Python 3.11+, OpenAI GPT-4, PostgreSQL + pgvector, Docker
+**Built with**: Python 3.11+, OpenAI GPT-4, PostgreSQL + pgvector, Docker (Optional)

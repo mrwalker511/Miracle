@@ -61,22 +61,23 @@
 │  MEMORY       │ │  SANDBOX   │ │  TESTING   │ │   PROJECT    │
 │  SYSTEM       │ │  SYSTEM    │ │  SYSTEM    │ │  SCAFFOLDING │
 │               │ │            │ │            │ │              │
-│ - DB Manager  │ │ - Docker   │ │ - Test Gen │ │ - Python     │
-│ - Vector Store│ │ - Safety   │ │ - Test Run │ │ - Node.js    │
-│ - Pattern     │ │ - Resource │ │ - Coverage │ │              │
-│   Matcher     │ │   Limits   │ │            │ │              │
+│ - DB Manager  │ │ - Docker   │ │ - Test Gen │ │ - Multi-      │
+│ - Vector Store│ │ (Optional) │ │ - Test Run │ │   Language    │
+│ - Pattern     │ │ - Safety   │ │ - Coverage │ │ Scaffolding   │
+│   Matcher     │ │ - Resource │ │            │ │               │
+│               │ │   Limits   │ │            │ │               │
 └───────┬───────┘ └──────┬─────┘ └──────┬─────┘ └──────────────┘
         │                │               │
         ▼                ▼               ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                     DATA & EXECUTION LAYER                        │
 │  ┌────────────────────────┐    ┌────────────────────────────┐   │
-│  │  PostgreSQL + pgvector │    │  Docker Containers         │   │
-│  │  - Tasks               │    │  - Isolated workspaces     │   │
-│  │  - Iterations          │    │  - Resource limits         │   │
-│  │  - Failures (vectors)  │    │  - Network disabled        │   │
-│  │  - Patterns (vectors)  │    │  - Security scanning       │   │
-│  │  - Metrics             │    │                            │   │
+│  │  PostgreSQL + pgvector │    │  Execution Environment     │   │
+│  │  - Tasks               │    │  - Docker (Optional)       │   │
+│  │  - Iterations          │    │  - Local (Fallback)        │   │
+│  │  - Failures (vectors)  │    │  - Isolated workspaces     │   │
+│  │  - Patterns (vectors)  │    │  - Resource limits         │   │
+│  │  - Metrics             │    │  - Security scanning       │   │
 │  └────────────────────────┘    └────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -102,6 +103,6 @@ This system implements autonomous coding through:
 - **Agents**: 4 specialized agents (Planner, Coder, Tester, Reflector)
 - **LLM Interface**: OpenAI client with retry logic and token tracking
 - **Memory System**: PostgreSQL + pgvector for learning from failures
-- **Sandbox System**: Docker-based isolated execution environments
+- **Sandbox System**: Isolated execution environments (Docker optional)
 - **Testing System**: Automatic test generation and execution
 - **Project Scaffolding**: Multi-language project structure generation
