@@ -6,49 +6,31 @@ An autonomous AI-powered coding system that iteratively writes and tests code un
 
 ---
 
-## 📚 Agent Documentation (Agent.MD Files)
+## 📚 Agent Documentation
 
-This project includes comprehensive **Agent.MD** documentation to enable any AI coding tool to work on this codebase effectively. Whether you're using Claude, ChatGPT, GitHub Copilot, or any other AI assistant, these documents provide all the context you need.
+**Start here**: **[AGENTS.md](AGENTS.md)** - Progressive disclosure entry point for AI agents
 
-### 🎯 For Planning Agents
+This project uses **progressive disclosure** for documentation - start with what you need, dig deeper as needed. The root [AGENTS.md](AGENTS.md) contains only essentials (commands, requirements), with links to focused topic files:
 
-**[AGENT-PLANNING.md](AGENT-PLANNING.md)** - High-level architecture and feature design
-- System architecture overview
-- State machine patterns
-- Component responsibilities
-- Extension points
-- Feature planning checklist
-- Architectural decisions and trade-offs
+### 📖 Topic-Based Documentation
 
-### 🛠️ For Execution/Worker Agents
+Navigate by what you need to accomplish:
 
-**[AGENT-EXECUTION.md](AGENT-EXECUTION.md)** - Implementation guidelines and best practices
-- Getting started guide
-- Common implementation tasks
-- Testing guidelines
-- Code style conventions
-- Debugging tips
-- Pre-commit checklist
+- 🚀 **[Getting Started](docs/agents/getting-started.md)** - Setup, installation, project structure, first run
+- 🏗️ **[Architecture](docs/agents/architecture.md)** - State machine, components, data flow, patterns
+- 🔧 **[Development Workflows](docs/agents/development-workflows.md)** - Adding tools/states, bug fixes, common tasks
+- 📝 **[Code Conventions](docs/agents/code-conventions.md)** - Async patterns, DB ops, config access, best practices
+- 🤖 **[Agent Behaviors](docs/agents/agent-behaviors.md)** - Planner, Coder, Tester, Reflector specifics
+- 🔒 **[Safety & Security](docs/agents/safety-security.md)** - Multi-layer protection, security checklist
+- 🧠 **[Memory & Learning](docs/agents/memory-learning.md)** - Vector search, pattern storage, failure analysis
+- 🧪 **[Testing Strategy](docs/agents/testing-strategy.md)** - Unit, integration, e2e testing approaches
 
-### 🏗️ Architecture Documentation
+### 🏗️ Architecture Deep-Dive
 
-**[docs/architecture/](docs/architecture/)** - Optimized technical architecture (replaces ARCHITECTURE.md)
-- **10 focused files** for better AI agent efficiency
-- **Concise modules** (200-500 lines each) instead of 1622-line monolith
-- **Better organization** with clear separation of concerns
-- **Improved navigation** with numbered prefixes
-
-**Key Files:**
-- [01-system-overview.md](docs/architecture/01-system-overview.md) - High-level architecture
-- [02-architectural-patterns.md](docs/architecture/02-architectural-patterns.md) - Design patterns
-- [03-component-architecture.md](docs/architecture/03-component-architecture.md) - Component details
-- [04-data-flow.md](docs/architecture/04-data-flow.md) - Data movement
-- [05-database-architecture.md](docs/architecture/05-database-architecture.md) - Schema design
-- [06-llm-integration.md](docs/architecture/06-llm-integration.md) - OpenAI integration
-- [07-security-architecture.md](docs/architecture/07-security-architecture.md) - Security measures
-- [08-scalability-performance.md](docs/architecture/08-scalability-performance.md) - Performance strategies
-- [09-deployment-architecture.md](docs/architecture/09-deployment-architecture.md) - Deployment options
-- [10-technical-decisions.md](docs/architecture/10-technical-decisions.md) - Architectural decisions
+**[docs/architecture/](docs/architecture/)** - Complete technical architecture (10 focused files)
+- Each file covers a specific architectural concern (200-500 lines)
+- Numbered for logical progression
+- From system overview to technical decisions
 
 ### 🔄 Functionality Documentation
 
@@ -136,11 +118,12 @@ The Autonomous Coding Agent accepts high-level coding tasks and autonomously:
 
 When contributing to this project:
 
-1. Read [AGENT-PLANNING.md](AGENT-PLANNING.md) if designing features
-2. Read [AGENT-EXECUTION.md](AGENT-EXECUTION.md) if implementing code
-3. Follow the code style guidelines
-4. Write tests for new features
-5. Update relevant Agent.MD files if behavior changes
+1. Start with [AGENTS.md](AGENTS.md) for essential commands and requirements
+2. Read [Architecture](docs/agents/architecture.md) if designing features
+3. Read [Development Workflows](docs/agents/development-workflows.md) for implementation tasks
+4. Follow [Code Conventions](docs/agents/code-conventions.md)
+5. Write tests following [Testing Strategy](docs/agents/testing-strategy.md)
+6. Update relevant documentation if behavior changes
 
 ---
 
@@ -152,9 +135,8 @@ When contributing to this project:
 
 ## 🔗 Additional Resources
 
-- **Main Agent README**: `autonomous_agent/README.md`
-- **Handoff Document**: `autonomous_coding_agent_handoff.md` (1,516 lines of detailed specs)
-- **Database Schema**: `autonomous_agent/scripts/init_db.sql`
+- **Database Schema**: See `scripts/init_db.sql`
+- **Archived Documentation**: Legacy agent docs moved to `docs/archive/` (historical reference)
 
 ---
 
