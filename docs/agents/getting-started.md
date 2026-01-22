@@ -8,16 +8,19 @@ Quick guide to set up and start working on the Miracle autonomous coding agent.
 
 ### Prerequisites
 
+**Required:**
 - Python 3.11+
-- Docker and Docker Compose
-- PostgreSQL 14+ (via Docker)
+- PostgreSQL 14+ (see database options below)
 - OpenAI API key
+
+**Optional:**
+- Docker and Docker Compose (for sandboxed code execution)
 
 ### Installation
 
 ```bash
 # Navigate to project
-cd /home/user/Miracle/autonomous_agent
+cd /path/to/autonomous_agent
 
 # Create virtual environment
 python3.11 -m venv venv
@@ -31,14 +34,47 @@ cp .env.example .env
 # Edit .env and add:
 #   OPENAI_API_KEY=your_key_here
 #   DB_PASSWORD=your_password_here
+```
 
-# Start database
+### Database Setup
+
+**Option 1: Docker (recommended for development)**
+```bash
+# Start PostgreSQL with pgvector
 docker-compose up -d postgres
 
 # Initialize database
 python scripts/setup_db.py
+```
 
-# Verify installation
+**Option 2: Local PostgreSQL**
+```bash
+# Install PostgreSQL with pgvector extension
+# On macOS: brew install postgresql pgvector
+# On Ubuntu: apt-get install postgresql postgresql-contrib
+# Then: CREATE EXTENSION vector;
+
+# Configure connection in .env
+# DB_HOST=localhost
+# DB_PORT=5432
+
+# Initialize database
+python scripts/setup_db.py
+```
+
+**Option 3: Hosted PostgreSQL**
+```bash
+# Use any PostgreSQL provider with pgvector support:
+# - Supabase, Neon, or managed cloud providers
+# - Update connection details in .env
+
+# Initialize database
+python scripts/setup_db.py
+```
+
+### Verify Installation
+
+```bash
 pytest tests/ -v
 ```
 
@@ -130,7 +166,7 @@ python -c "from src.memory.db_manager import DatabaseManager; import asyncio; as
 # Check OpenAI API
 python -c "from src.llm.openai_client import OpenAIClient; import asyncio; asyncio.run(OpenAIClient().test_connection())"
 
-# Check Docker
+# Check Docker (if using Docker sandbox)
 docker ps
 
 # Run minimal test suite
@@ -154,6 +190,8 @@ pytest tests/unit/ -v
 ## Troubleshooting
 
 ### Database Connection Failed
+
+**If using Docker:**
 ```bash
 # Check PostgreSQL is running
 docker-compose ps
@@ -166,12 +204,26 @@ docker-compose up -d postgres
 python scripts/setup_db.py
 ```
 
+**If using local PostgreSQL:**
+```bash
+# Check PostgreSQL status
+pg_isready
+
+# Check connection settings in .env
+# Verify DB_HOST, DB_PORT, DB_USER, DB_PASSWORD
+
+# Re-initialize
+python scripts/setup_db.py
+```
+
 ### OpenAI API Errors
 - Verify `OPENAI_API_KEY` in `.env`
-- Check API rate limits
+- Check API rate limits at platform.openai.com
 - Try fallback model in `config/openai.yaml`
 
-### Docker Sandbox Issues
+### Sandbox Issues
+
+**If using Docker sandbox:**
 ```bash
 # Check Docker daemon
 docker info
@@ -179,6 +231,11 @@ docker info
 # Rebuild sandbox image
 docker build -f Dockerfile.sandbox -t python-sandbox .
 ```
+
+**If Docker not available:**
+- Configure sandbox to use subprocess execution
+- Update `config/settings.yaml`: `sandbox.use_docker: false`
+- Note: Subprocess has fewer security guarantees
 
 ---
 

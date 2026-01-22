@@ -107,10 +107,11 @@ The Autonomous Coding Agent accepts high-level coding tasks and autonomously:
 
 - **Autonomous Loop**: Operates continuously until success or max iterations
 - **Learning System**: Stores failures and patterns with vector embeddings for retrieval
-- **Multi-layer Safety**: AST scanning, Bandit SAST, user approval, Docker sandboxing
+- **Multi-layer Safety**: AST scanning, Bandit SAST, user approval, sandbox isolation
 - **Memory System**: PostgreSQL + pgvector for similarity search
-- **Multi-language**: Python (primary), Node.js (secondary)
+- **Language Support**: Implemented in Python, can generate code in multiple languages
 - **Resumable**: Checkpoint/resume support for interrupted tasks
+- **Flexible Deployment**: Works with or without Docker
 
 ---
 
@@ -140,4 +141,4 @@ When contributing to this project:
 
 ---
 
-**Built with**: Python 3.11+, OpenAI GPT-4, PostgreSQL + pgvector, Docker
+**Built with**: Python 3.11+, OpenAI GPT-4, PostgreSQL + pgvector, Docker (optional)
