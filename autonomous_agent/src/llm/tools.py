@@ -74,17 +74,17 @@ def get_testing_tools() -> List[Dict[str, Any]]:
             "type": "function",
             "function": {
                 "name": "create_test_file",
-                "description": "Create a pytest test file",
+                "description": "Create a test file for the appropriate runtime",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "path": {
                             "type": "string",
-                            "description": "Test file path (e.g., 'test_app.py')"
+                            "description": "Test file path (e.g., 'test_app.py', 'test/app.test.js')"
                         },
                         "content": {
                             "type": "string",
-                            "description": "Complete test file content"
+                            "description": "Complete test file content with proper assertions for the runtime"
                         }
                     },
                     "required": ["path", "content"]

@@ -1,26 +1,50 @@
 # Safety rules for AST scanning
 
 blocked_functions:
+  # Python
   - eval
   - exec
   - compile
   - __import__
   - execfile
+  
+  # JavaScript
+  - eval  # JavaScript eval() is also dangerous
 
 blocked_modules:
+  # Python
   - os.system
   - subprocess.Popen
   - subprocess.call
   - subprocess.run
   - pickle.loads
   - marshal.loads
+  
+  # JavaScript
+  - child_process.exec
+  - child_process.execSync
+  - child_process.spawn
+  - child_process.spawnSync
+  - child_process.execFile
+  - child_process.execFileSync
 
 require_approval:
+  # Python
   - requests.get
   - requests.post
   - urllib.request.urlopen
   - socket.connect
   - open  # Outside sandbox
+  
+  # JavaScript/Node.js
+  - fetch           # Built-in fetch API
+  - http.request    # Node.js http module
+  - https.request   # Node.js https module
+  - axios           # Common HTTP library
+  - child_process.exec  # Process execution
+  - child_process.spawn
+  - fs.readFile     # File system access
+  - fs.writeFile    # File system access
 
 bandit:
   severity_threshold: "MEDIUM"  # Block MEDIUM and above
@@ -28,3 +52,32 @@ bandit:
   exclude_tests:
     - B404  # import subprocess (we need this for sandbox)
     - B603  # subprocess without shell=True (safe usage)
+    
+# JavaScript security analysis (ESLint-like rules)
+javascript_security:
+  severity_threshold: "MEDIUM"
+  blocked_patterns:
+    - pattern: "eval\s*\("
+      severity: HIGH
+      message: "Use of eval() is dangerous and blocked"
+    - pattern: "Function\s*\("
+      severity: HIGH
+      message: "Function constructor is similar to eval() and blocked"
+    - pattern: "setTimeout\s*\(\s*\""
+      severity: MEDIUM
+      message: "setTimeout with string is similar to eval()"
+    - pattern: "setInterval\s*\(\s*\""
+      severity: MEDIUM
+      message: "setInterval with string is similar to eval()"
+    - pattern: "innerHTML\s*="
+      severity: MEDIUM
+      message: "Direct innerHTML assignment can lead to XSS"
+    - pattern: "document\.write\s*\("
+      severity: MEDIUM  
+      message: "document.write can lead to XSS and is deprecated"
+    - pattern: "localStorage\["
+      severity: LOW
+      message: "Direct localStorage access without sanitization"
+    - pattern: "location\."  
+      severity: LOW
+      message: "Direct location manipulation could be dangerous"

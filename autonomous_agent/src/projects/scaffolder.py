@@ -104,3 +104,9 @@ class ProjectScaffolder:
             "const test = require('node:test');\nconst assert = require('node:assert/strict');\n\nconst lib = require('../src/index');\n\ntest('smoke: module loads', () => {\n  assert.equal(typeof lib, 'object');\n});\n",
             encoding="utf-8",
         )
+        
+        # Add a .gitignore for Node.js projects
+        (workspace / ".gitignore").write_text(
+            "node_modules/\n*.log\n.env\n.DS_Store\ndist/\ncoverage/\n",
+            encoding="utf-8",
+        )
