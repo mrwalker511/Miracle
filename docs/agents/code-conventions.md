@@ -2,6 +2,8 @@
 
 Code patterns and best practices for the Miracle autonomous coding agent.
 
+**Note**: This file focuses on patterns for the Python codebase. When working with other languages, adapt these principles to that language's idioms and conventions.
+
 ---
 
 ## Async/Await Pattern

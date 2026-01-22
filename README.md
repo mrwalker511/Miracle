@@ -104,6 +104,7 @@ The Autonomous Coding Agent accepts high-level coding tasks and autonomously:
 - **Memory System**: PostgreSQL + pgvector for similarity search
 - **Language Agnostic**: Supports Python, Node.js, and any other requested language
 - **Resumable**: Checkpoint/resume support for interrupted tasks
+- **Flexible Deployment**: Works with or without Docker
 
 ---
 

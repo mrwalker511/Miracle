@@ -26,10 +26,17 @@ flake8 src/ tests/
 
 ## Code Requirements
 
+**For this codebase (Python):**
 - **Style**: PEP 8
 - **Type hints**: Required on all public functions
 - **Docstrings**: Required for all public functions
 - **Async/await**: All agent methods and LLM calls must be async
+
+**General principles (any language):**
+- Follow established conventions for the target language
+- Write tests for new functionality
+- Document public interfaces
+- Handle errors gracefully
 
 ## Documentation
 
