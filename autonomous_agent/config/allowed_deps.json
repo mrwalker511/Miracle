@@ -2,50 +2,103 @@
   "description": "Curated allowlist of dependencies the agent can request",
   "version": "1.0.0",
   "categories": {
-    "web_frameworks": [
+    "python_web_frameworks": [
       "flask",
       "fastapi",
       "django",
       "starlette",
       "uvicorn"
     ],
-    "data_processing": [
+    "python_data_processing": [
       "pandas",
       "numpy",
       "scipy",
       "polars"
     ],
-    "databases": [
+    "python_databases": [
       "sqlalchemy",
       "psycopg2-binary",
       "pymongo",
       "redis"
     ],
-    "testing": [
+    "python_testing": [
       "pytest",
       "pytest-cov",
       "hypothesis",
       "unittest-mock"
     ],
-    "utilities": [
+    "python_utilities": [
       "requests",
       "pydantic",
       "click",
       "rich",
       "python-dotenv"
     ],
-    "async": [
+    "python_async": [
       "aiohttp",
       "asyncio",
       "httpx"
+    ],
+    "nodejs_web_frameworks": [
+      "express",
+      "fastify",
+      "koa",
+      "hapi",
+      "nestjs"
+    ],
+    "nodejs_data_processing": [
+      "lodash",
+      "underscore",
+      "ramda",
+      "dayjs",
+      "moment"
+    ],
+    "nodejs_databases": [
+      "mysql",
+      "mysql2",
+      "pg",
+      "mongoose",
+      "redis",
+      "mongodb"
+    ],
+    "nodejs_testing": [
+      "jest",
+      "mocha",
+      "chai",
+      "sinon",
+      "supertest",
+      "vitest"
+    ],
+    "nodejs_utilities": [
+      "axios",
+      "dotenv",
+      "winston",
+      "pino",
+      "zod",
+      "joi",
+      "yaml",
+      "csv-parser"
+    ],
+    "nodejs_build_tools": [
+      "typescript",
+      "webpack",
+      "vite",
+      "rollup",
+      "esbuild"
     ]
   },
-  "blocked": [
-    "os",
-    "subprocess",
-    "pty",
-    "pickle",
-    "marshal"
-  ],
-  "notes": "Agent must request approval even for allowlisted packages"
+  "blocked": {
+    "python": [
+      "os",
+      "subprocess",
+      "pty",
+      "pickle",
+      "marshal"
+    ],
+    "javascript": [
+      "child_process",
+      "vm"
+    ]
+  },
+  "notes": "Agent must request approval even for allowlisted packages. Different runtimes (Python/Node.js) have separate allowlists."
 }
