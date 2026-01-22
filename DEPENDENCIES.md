@@ -1,502 +1,260 @@
 # DEPENDENCIES.md
 
-> **Purpose**: Comprehensive guide for dependency management, setup, configuration, and operational requirements for the Autonomous Coding Agent system.
+> **Purpose**: Dependency management, setup, and configuration guide.
 
 ---
 
-## 📑 Table of Contents
+## System Requirements
 
-1. [System Requirements](#system-requirements)
-2. [Installation Guide](#installation-guide)
-3. [Python Dependencies](#python-dependencies)
-4. [Configuration Management](#configuration-management)
-5. [Database Setup](#database-setup)
-6. [Docker Setup](#docker-setup)
-7. [Dependency Approval System](#dependency-approval-system)
-8. [Environment Variables](#environment-variables)
-9. [Troubleshooting](#troubleshooting)
-10. [Upgrading](#upgrading)
-
----
-
-## 1. System Requirements
-
-### 1.1 Minimum Requirements
+### Minimum Requirements
 
 | Component | Requirement | Notes |
 |-----------|-------------|-------|
-| **Operating System** | Linux, macOS, Windows (WSL2) | Windows native not fully supported |
-| **Python** | 3.11 or higher | 3.12 recommended |
-| **Docker** | 20.10 or higher | For code sandboxing |
-| **PostgreSQL** | 14 or higher | With pgvector extension |
+| **OS** | Linux, macOS, Windows (WSL2) | Windows native not fully supported |
+| **Python** | 3.11+ | 3.12 recommended |
+| **Docker** | 20.10+ | For code sandboxing |
+| **PostgreSQL** | 14+ | With pgvector extension |
 | **RAM** | 4GB | 8GB recommended |
-| **Disk Space** | 10GB free | For Docker images and workspaces |
-| **Internet** | Stable connection | For OpenAI API calls |
+| **Disk** | 10GB free | For Docker images and workspaces |
+| **Internet** | Stable | For OpenAI API calls |
 
-### 1.2 Recommended Requirements (Production)
+### Recommended (Production)
 
-| Component | Requirement | Notes |
-|-----------|-------------|-------|
-| **Operating System** | Ubuntu 22.04 LTS | Or similar Linux distribution |
-| **Python** | 3.12 | Latest stable version |
-| **Docker** | 24.0 or higher | Latest stable version |
-| **PostgreSQL** | 16 | Latest stable with pgvector 0.5+ |
-| **RAM** | 16GB | For parallel task execution |
-| **Disk Space** | 50GB+ | For large workspaces and logs |
-| **CPU** | 4+ cores | For Docker container isolation |
+| Component | Requirement |
+|-----------|-------------|
+| **OS** | Ubuntu 22.04 LTS |
+| **Python** | 3.12 |
+| **Docker** | 24.0+ |
+| **PostgreSQL** | 16 (pgvector 0.5+) |
+| **RAM** | 16GB |
+| **Disk** | 50GB+ |
+| **CPU** | 4+ cores |
 
-### 1.3 External Services
+### External Services
 
 | Service | Required | Purpose | Cost |
-|---------|----------|---------|------|
-| **OpenAI API** | ✅ Yes | LLM inference + embeddings | Pay-per-use (~$0.50-$2 per task) |
-| **PostgreSQL** | ✅ Yes | Task state + vector storage | Self-hosted (free) or managed ($10-50/month) |
-| **Docker** | ✅ Yes | Code sandboxing | Self-hosted (free) |
+|----------|-----------|---------|------|
+| **OpenAI API** | Yes | LLM, embeddings | Pay-per-use |
+| **PostgreSQL** | Yes | Self-hosted (Docker) | Free |
+| **Docker Hub** | Yes | Pull base images | Free |
 
 ---
 
-## 2. Installation Guide
+## Installation Guide
 
-### 2.1 Quick Start (Development)
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/yourusername/miracle.git
-cd miracle/autonomous_agent
-
-# 2. Create virtual environment
-python3.11 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# 3. Install Python dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# 4. Set up environment variables
-cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
-
-# 5. Start PostgreSQL with Docker
-docker-compose up -d postgres
-
-# 6. Initialize database
-python scripts/setup_db.py
-
-# 7. Verify installation
-python -m src.main --version
-python -m src.main run --task "Write a hello world function" --language python
-```
-
-### 2.2 Step-by-Step Installation (All Platforms)
-
-#### Step 1: Install Python 3.11+
-
-**Ubuntu/Debian:**
-```bash
-sudo apt update
-sudo apt install python3.11 python3.11-venv python3.11-dev
-```
-
-**macOS (Homebrew):**
-```bash
-brew install python@3.11
-```
-
-**Windows:**
-- Download from [python.org](https://www.python.org/downloads/)
-- Install with "Add Python to PATH" checked
-- Use WSL2 for better compatibility
-
-**Verify:**
-```bash
-python3.11 --version
-# Should output: Python 3.11.x or higher
-```
-
-#### Step 2: Install Docker
-
-**Ubuntu:**
-```bash
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-# Log out and back in for group membership to take effect
-```
-
-**macOS:**
-- Download [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop)
-- Install and start Docker Desktop
-
-**Windows (WSL2):**
-- Install WSL2: `wsl --install`
-- Install Docker Desktop for Windows
-- Enable WSL2 backend in Docker settings
-
-**Verify:**
-```bash
-docker --version
-docker compose version
-```
-
-#### Step 3: Install PostgreSQL (Optional - Or Use Docker)
-
-**Option A: Use Docker (Recommended for Development)**
-```bash
-# Included in docker-compose.yml, no manual install needed
-docker-compose up -d postgres
-```
-
-**Option B: Install Locally (Production)**
-
-**Ubuntu:**
-```bash
-sudo apt install postgresql-14 postgresql-contrib-14
-sudo apt install postgresql-14-pgvector  # pgvector extension
-```
-
-**macOS:**
-```bash
-brew install postgresql@14
-brew install pgvector
-```
-
-**Verify:**
-```bash
-psql --version
-# Should output: psql (PostgreSQL) 14.x or higher
-```
-
-#### Step 4: Clone and Set Up Project
+### Quick Start
 
 ```bash
-git clone https://github.com/yourusername/miracle.git
-cd miracle/autonomous_agent
+# Clone repository
+git clone <repo-url>
+cd autonomous_agent
 
 # Create virtual environment
 python3.11 -m venv venv
-source venv/bin/activate
-
-# Upgrade pip
-pip install --upgrade pip setuptools wheel
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Verify installation
-pip list | grep openai  # Should show openai package
-```
-
-#### Step 5: Configure Environment
-
-```bash
-# Copy example environment file
+# Set up environment variables
 cp .env.example .env
+# Edit .env and add OPENAI_API_KEY and DB_PASSWORD
 
-# Edit .env file
-nano .env  # or vim, code, etc.
-
-# Required variables:
-#   OPENAI_API_KEY=sk-...
-#   DB_PASSWORD=your_secure_password
-```
-
-#### Step 6: Start Services
-
-```bash
-# Start PostgreSQL (if using Docker)
+# Start PostgreSQL
 docker-compose up -d postgres
 
-# Wait for PostgreSQL to be ready (5-10 seconds)
-sleep 10
-
-# Initialize database schema
+# Initialize database
 python scripts/setup_db.py
 
-# Verify database connection
-python -c "from src.memory.db_manager import DatabaseManager; print('DB connection OK')"
+# Run tests
+pytest tests/ -v
+
+# Run agent
+python -m src.main run
 ```
 
-#### Step 7: Run First Task
+### Step-by-Step
 
+**1. System Dependencies**
 ```bash
-python -m src.main run \
-    --task "Write a function that calculates the factorial of a number" \
-    --language python
+# Ubuntu/Debian
+sudo apt update
+sudo apt install python3.11 python3.11-venv docker.io docker-compose postgresql-client
 
-# If successful, you'll see the agent working through iterations
+# macOS
+brew install python@3.11 docker docker-compose
+
+# Windows (WSL2)
+# Install Docker Desktop for Windows
+# Install Python 3.11 from python.org
 ```
 
-### 2.3 Verifying Installation
-
-**Run diagnostics:**
+**2. Python Setup**
 ```bash
-python scripts/diagnose.py
+# Verify Python version
+python --version  # Should be 3.11+
+
+# Create virtual environment
+python -m venv venv
+
+# Activate (Linux/macOS)
+source venv/bin/activate
+
+# Activate (Windows)
+venv\Scripts\activate
 ```
 
-**Expected output:**
-```
-✓ Python version: 3.11.5
-✓ Docker running: Yes
-✓ PostgreSQL accessible: Yes
-✓ pgvector installed: Yes (version 0.5.1)
-✓ OpenAI API key: Set (sk-...XXXX)
-✓ Configuration files: All present
-✓ Workspace directory: Writable
-
-All checks passed! System is ready.
-```
-
----
-
-## 3. Python Dependencies
-
-### 3.1 Core Dependencies
-
-```txt
-# requirements.txt
-
-# LLM and AI
-openai==1.12.0                  # OpenAI API client (GPT-4, embeddings)
-tiktoken==0.6.0                 # Token counting for OpenAI models
-
-# Database
-psycopg2-binary==2.9.9          # PostgreSQL adapter
-sqlalchemy==2.0.25              # ORM (optional, for advanced queries)
-
-# Vector similarity
-pgvector==0.2.4                 # Python client for pgvector
-
-# Docker integration
-docker==7.0.0                   # Docker Python SDK
-
-# Testing frameworks (for generated code)
-pytest==8.0.0                   # Test framework
-pytest-cov==4.1.0               # Coverage plugin
-hypothesis==6.98.0              # Property-based testing
-
-# CLI and UI
-click==8.1.7                    # Command-line interface framework
-rich==13.7.0                    # Terminal UI (colors, progress bars)
-prompt-toolkit==3.0.43          # Interactive prompts
-
-# Logging and observability
-structlog==24.1.0               # Structured logging (JSON)
-
-# Code analysis
-bandit==1.7.6                   # Security scanning (SAST)
-
-# Utilities
-tenacity==8.2.3                 # Retry logic with exponential backoff
-pydantic==2.5.0                 # Data validation
-pyyaml==6.0.1                   # YAML configuration parsing
-python-dotenv==1.0.0            # .env file loading
-
-# Async support
-aiofiles==23.2.1                # Async file I/O
-asyncio==3.4.3                  # Async runtime (builtin, but specified for clarity)
-```
-
-### 3.2 Dependency Groups
-
-**Development Dependencies** (not in requirements.txt, install separately):
+**3. Install Python Packages**
 ```bash
-pip install pytest pytest-asyncio pytest-mock black isort mypy flake8 ipython
-```
-
-| Package | Purpose |
-|---------|---------|
-| pytest-asyncio | Testing async code |
-| pytest-mock | Mocking in tests |
-| black | Code formatting |
-| isort | Import sorting |
-| mypy | Type checking |
-| flake8 | Linting |
-| ipython | REPL for debugging |
-
-**Optional Dependencies** (for advanced features):
-```bash
-pip install redis prometheus-client sentry-sdk
-```
-
-| Package | Purpose |
-|---------|---------|
-| redis | Caching for embeddings (performance) |
-| prometheus-client | Metrics export (monitoring) |
-| sentry-sdk | Error tracking (production) |
-
-### 3.3 Installing Dependencies
-
-**Standard Install:**
-```bash
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-**With Development Dependencies:**
+**4. Environment Variables**
 ```bash
-pip install -r requirements.txt -r requirements-dev.txt
+# Copy example
+cp .env.example .env
+
+# Edit .env with your values:
+# OPENAI_API_KEY=sk-...
+# DB_PASSWORD=your_secure_password
+# LOG_LEVEL=info
 ```
 
-**Update All Dependencies:**
+**5. Start PostgreSQL**
 ```bash
-pip install --upgrade -r requirements.txt
+# Start Docker containers
+docker-compose up -d postgres
+
+# Wait for startup (10-30 seconds)
+# Check logs
+docker-compose logs postgres
+
+# Verify connection
+docker exec -it autonomous-agent-postgres-1 psql -U agent_user -d autonomous_agent -c "SELECT version();"
 ```
 
-**Install Specific Version:**
+**6. Initialize Database**
 ```bash
-pip install openai==1.12.0  # Pin to specific version
+python scripts/setup_db.py
+# This runs init_db.sql to create tables and indexes
 ```
 
-### 3.4 Dependency Pinning
-
-**Why Pin Versions?**
-- Reproducibility (same environment every time)
-- Stability (avoid breaking changes)
-- Security (control when to upgrade)
-
-**Current Strategy**: Exact version pinning (e.g., `openai==1.12.0`)
-
-**Alternative Strategy**: Compatible version ranges (e.g., `openai>=1.12.0,<2.0.0`)
-
-**Updating Dependencies:**
+**7. Verify Installation**
 ```bash
-# Check for outdated packages
-pip list --outdated
+# Run tests
+pytest tests/ -v
 
-# Update specific package
-pip install --upgrade openai
+# Start CLI
+python -m src.main --help
 
-# Freeze new versions
-pip freeze > requirements.txt
-```
-
-### 3.5 Dependency Security
-
-**Scan for Vulnerabilities:**
-```bash
-# Install safety
-pip install safety
-
-# Scan dependencies
-safety check --json
-
-# Example output:
-# {
-#   "vulnerabilities": [
-#     {
-#       "package": "requests",
-#       "version": "2.25.0",
-#       "cve": "CVE-2023-XXXXX",
-#       "severity": "high"
-#     }
-#   ]
-# }
-```
-
-**Automated Security Scanning** (CI/CD):
-```yaml
-# .github/workflows/security.yml
-name: Security Scan
-on: [push, pull_request]
-jobs:
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run safety check
-        run: safety check --json
+# Should see commands: run, history, resume, etc.
 ```
 
 ---
 
-## 4. Configuration Management
+## Python Dependencies
 
-### 4.1 Configuration Files
+### Core Dependencies
 
-**Location**: `autonomous_agent/config/`
+**requirements.txt**:
+```txt
+# Core
+python-dotenv==1.0.0
+pyyaml==6.0.1
 
+# OpenAI (flexible model support)
+openai==1.12.0
+
+# Database
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.25
+pgvector==0.2.4
+
+# Testing
+pytest==8.0.0
+pytest-cov==4.1.0
+pytest-timeout==2.2.0
+hypothesis==6.98.0
+
+# Code analysis
+bandit==1.7.6
+pylint==3.0.3
+
+# Docker
+docker==7.0.0
+
+# CLI & UI
+click==8.1.7
+rich==13.7.0
+prompt-toolkit==3.0.43
+
+# Logging
+structlog==24.1.0
+python-json-logger==2.0.7
+
+# Utilities
+tenacity==8.2.3
+tiktoken==0.6.0
 ```
-config/
-├── settings.yaml          # Main system settings
-├── database.yaml          # Database connection
-├── openai.yaml            # LLM models and parameters
-├── system_prompts.yaml    # Agent prompts
-├── allowed_deps.json      # Dependency allowlist
-└── safety_rules.yaml      # Security rules
-```
 
-### 4.2 Main Configuration (settings.yaml)
+### Dependency Categories
 
+| Category | Packages | Purpose |
+|----------|-----------|---------|
+| **Core** | python-dotenv, pyyaml | Config loading |
+| **LLM** | openai, tenacity, tiktoken | OpenAI API, retry, tokens |
+| **Database** | psycopg2, sqlalchemy, pgvector | PostgreSQL + vectors |
+| **Testing** | pytest, hypothesis | Test framework |
+| **Security** | bandit | SAST scanning |
+| **Sandbox** | docker | Container management |
+| **CLI** | click, rich | Terminal interface |
+| **Logging** | structlog | Structured JSON logs |
+
+### Version Management
+
+- All packages pinned to exact versions
+- Use `pip-compile` (pip-tools) to update:
+  ```bash
+  pip install pip-tools
+  pip-compile requirements.in
+  ```
+
+### Adding New Dependencies
+
+1. Add to `requirements.txt`
+2. Update `requirements.in` (if using pip-tools)
+3. Install: `pip install -r requirements.txt`
+4. Add to Dockerfile if needed
+5. Update documentation
+
+---
+
+## Configuration Management
+
+### Configuration Files
+
+**settings.yaml** - System settings:
 ```yaml
-# config/settings.yaml
-
 orchestrator:
   max_iterations: 15
-  checkpoint_frequency: 5        # Save state every N iterations
-  warning_threshold: 12          # Warn user at this iteration
-  max_concurrent_tasks: 1        # Future: parallel execution
-
-memory:
-  similarity_threshold: 0.6      # Min similarity for retrieval
-  max_similar_failures: 5        # Max results to retrieve
-  max_similar_patterns: 3        # Max patterns for planning
-  embedding_cache_ttl: 86400     # 24 hours in seconds
-
-sandbox:
-  cpu_limit: 1.0                 # CPU cores per container
-  memory_limit: "1g"             # RAM per container
-  timeout_seconds: 300           # 5 minutes
-  network_enabled: false         # Require approval for network
-  allow_network_after_approval: true
+  checkpoint_frequency: 5
+  circuit_breaker_warning: 12
+  circuit_breaker_stop: 15
 
 logging:
-  level: "INFO"                  # DEBUG, INFO, WARNING, ERROR
-  format: "json"                 # json or text
-  log_dir: "logs"
-  max_size_mb: 100               # Rotate logs at 100MB
-  backup_count: 5                # Keep 5 old log files
+  level: info
+  format: json
+  file: logs/autonomous_agent.log
 
-cost_control:
-  max_budget_per_task: 5.0       # USD
-  warn_at_percentage: 80         # Warn at 80% of budget
+sandbox:
+  cpu_limit: 1
+  memory_limit: 1g
+  timeout: 300  # seconds
 ```
 
-### 4.3 Database Configuration (database.yaml)
-
+**openai.yaml** - LLM configuration:
 ```yaml
-# config/database.yaml
-
-postgresql:
-  host: "localhost"
-  port: 5432
-  database: "autonomous_agent"
-  user: "postgres"
-  password: "${DB_PASSWORD}"     # From environment variable
-  pool_size: 10
-  max_overflow: 20
-  pool_timeout: 30
-  echo: false                    # Set true for SQL logging
-
-pgvector:
-  dimensions: 1536               # OpenAI text-embedding-3-large
-  index_type: "ivfflat"          # ivfflat or hnsw
-  lists: 100                     # IVFFlat parameter
-  probes: 10                     # Query probes
-```
-
-### 4.4 LLM Configuration (openai.yaml)
-
-```yaml
-# config/openai.yaml
-
-provider: "openai"
-
-api:
-  key: "${OPENAI_API_KEY}"       # From environment variable
-  organization: "${OPENAI_ORG_ID}"  # Optional
-  base_url: "https://api.openai.com/v1"  # For custom endpoints
-
 models:
   planner: "gpt-4-turbo-preview"
   coder: "gpt-4-turbo-preview"
@@ -507,240 +265,109 @@ models:
 fallback_sequence:
   - "gpt-4-turbo-preview"
   - "gpt-4"
-  - "gpt-3.5-turbo-16k"
+  - "gpt-3.5-turbo"
 
 parameters:
-  temperature: 0.2               # Low for deterministic code
-  top_p: 1.0
+  temperature: 0.2
   max_tokens: 4096
-  frequency_penalty: 0.0
-  presence_penalty: 0.0
-
-retry:
-  max_attempts: 3
-  min_wait_seconds: 2
-  max_wait_seconds: 10
-  exponential_base: 2
+  top_p: 1.0
 ```
 
-### 4.5 System Prompts (system_prompts.yaml)
-
+**database.yaml** - Database connection:
 ```yaml
-# config/system_prompts.yaml
+host: localhost
+port: 5432
+name: autonomous_agent
+user: agent_user
+password: ${DB_PASSWORD}  # From .env
 
-planner: |
-  You are an expert software architect. Given a task description, create a detailed
-  implementation plan.
+pool_size: 10
+max_overflow: 20
+pool_timeout: 30
 
-  Guidelines:
-  - Break down into 2-5 concrete, testable subtasks
-  - Identify dependencies between subtasks
-  - List expected challenges and edge cases
-  - Suggest a testing strategy
-
-  Be specific. Avoid vague subtasks like "make it work" or "add features".
-
-coder: |
-  You are an expert software engineer. Generate clean, well-documented code.
-
-  Guidelines:
-  - Follow language best practices (PEP 8 for Python, ESLint for Node.js)
-  - Include type hints (Python) or JSDoc (Node.js)
-  - Handle errors gracefully with try/except or try/catch
-  - Write self-documenting code with clear variable names
-  - Add comments only where logic is non-obvious
-
-  Use the provided tools to create files:
-  - create_file(path, content): Create a new file
-  - read_file(path): Read existing file
-  - list_files(): List workspace contents
-
-  If tests failed in previous iteration, focus on fixing those specific issues.
-
-tester: |
-  You are an expert test engineer. Generate comprehensive tests.
-
-  Guidelines:
-  - Include happy path tests (normal operation)
-  - Include edge case tests (empty input, null, boundary values)
-  - Include error handling tests (invalid input)
-  - Use property-based testing (hypothesis) for algorithmic functions
-  - Aim for >80% code coverage
-
-  Test framework: pytest for Python, jest for Node.js
-
-reflector: |
-  You are an expert debugger. Analyze test failures and identify root causes.
-
-  Guidelines:
-  - Parse error messages and stack traces
-  - Identify the ROOT CAUSE, not just the symptom
-  - Consider similar past failures and their solutions
-  - Generate a SPECIFIC, ACTIONABLE fix hypothesis
-
-  Be precise. Avoid vague suggestions like "check your code" or "add error handling".
-  Provide actionable fixes: "Change line X from Y to Z because [reason]".
+pgvector:
+  dimension: 1536
+  index_lists: 100
 ```
 
-### 4.6 Dependency Allowlist (allowed_deps.json)
+**safety_rules.yaml** - Safety configuration:
+```yaml
+blocked_imports:
+  - os
+  - subprocess
+  - pty
+  - socket
+  - sys
+  - __builtin__
 
+blocked_functions:
+  - eval
+  - exec
+  - compile
+
+approval_required:
+  - requests
+  - urllib
+  - httpx
+  - subprocess.run
+```
+
+**allowed_deps.json** - Dependency allowlist:
 ```json
 {
-  "python": {
-    "allowed": [
-      "flask",
-      "fastapi",
-      "django",
-      "requests",
-      "httpx",
-      "pandas",
-      "numpy",
-      "scipy",
-      "matplotlib",
-      "sqlalchemy",
-      "psycopg2",
-      "pymongo",
-      "redis",
-      "pytest",
-      "hypothesis",
-      "click",
-      "pydantic",
-      "pyyaml",
-      "python-dotenv"
-    ],
-    "blocked": [
-      "os",
-      "subprocess",
-      "pty",
-      "socket",
-      "pickle"
-    ],
-    "approval_required": [
-      "requests",
-      "urllib",
-      "httpx",
-      "paramiko",
-      "fabric"
-    ]
-  },
-  "node": {
-    "allowed": [
-      "express",
-      "axios",
-      "lodash",
-      "moment",
-      "jest",
-      "eslint"
-    ],
-    "blocked": [
-      "child_process",
-      "net",
-      "dgram"
-    ],
-    "approval_required": [
-      "axios",
-      "node-fetch",
-      "ssh2"
-    ]
-  }
+  "approved": [
+    {"name": "flask", "max_version": "3.0.0"},
+    {"name": "requests", "max_version": "2.31.0"},
+    {"name": "numpy", "max_version": "1.26.0"}
+  ],
+  "blocked": [
+    "eval", "exec", "__import__"
+  ]
 }
 ```
 
-### 4.7 Safety Rules (safety_rules.yaml)
+### Environment Variables
 
-```yaml
-# config/safety_rules.yaml
+**Required**:
+- `OPENAI_API_KEY` - OpenAI API key
+- `DB_PASSWORD` - PostgreSQL password
 
-python:
-  blocked_imports:
-    - os
-    - subprocess
-    - pty
-    - socket
-    - __builtin__
-    - __import__
-    - ctypes
-    - pickle
+**Optional**:
+- `LOG_LEVEL` - debug, info, warning, error (default: info)
+- `MAX_ITERATIONS` - Override default max iterations
+- `SANDBOX_TIMEOUT` - Override default timeout (seconds)
 
-  blocked_functions:
-    - eval
-    - exec
-    - compile
-    - __import__
+### Loading Configuration
 
-  approval_required_operations:
-    - network_request
-    - subprocess_call
-    - file_access_outside_workspace
-    - install_dependency
-
-  severity_levels:
-    blocked: "critical"          # Block immediately
-    approval_required: "high"    # Require user approval
-    warning: "medium"            # Log warning, allow
-
-node:
-  blocked_modules:
-    - child_process
-    - net
-    - dgram
-    - cluster
-
-  blocked_functions:
-    - eval
-    - Function              # new Function(...)
-
-  approval_required_operations:
-    - network_request
-    - spawn_process
-    - file_access_outside_workspace
-```
-
-### 4.8 Loading Configuration
-
-**In Code:**
-```python
-from src.config_loader import ConfigLoader
-
-# Load all configuration
-config = ConfigLoader(config_dir="config")
-
-# Access settings
-max_iterations = config.settings.orchestrator.max_iterations
-api_key = config.openai.api.key  # Loads from env var
-db_host = config.database.postgresql.host
-
-# Validate configuration
-config.validate()  # Raises error if invalid
-```
+Configuration loading in `src/config_loader.py`:
+1. Load YAML files from `config/` directory
+2. Substitute environment variables (`${VAR_NAME}`)
+3. Validate required fields present
+4. Merge with defaults
 
 ---
 
-## 5. Database Setup
+## Database Setup
 
-### 5.1 Using Docker Compose (Recommended)
+### PostgreSQL with pgvector
 
-**File**: `docker-compose.yml`
-
+**docker-compose.yml**:
 ```yaml
-version: '3.8'
-
 services:
   postgres:
-    image: pgvector/pgvector:pg16
-    container_name: autonomous_agent_db
+    image: pgvector/pgvector:pg15
     environment:
       POSTGRES_DB: autonomous_agent
-      POSTGRES_USER: postgres
+      POSTGRES_USER: agent_user
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U agent_user"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
@@ -748,631 +375,381 @@ volumes:
   postgres_data:
 ```
 
-**Start Database:**
+### Initializing Database
+
+**scripts/init_db.sql**:
+- Enable pgvector extension
+- Create tables (tasks, iterations, failures, patterns, metrics, approvals)
+- Create indexes (B-tree for standard columns, IVFFlat for vectors)
+- Create views (success_rate_by_type, recent_failures)
+
+**Run initialization**:
 ```bash
-docker-compose up -d postgres
+# Via setup script
+python scripts/setup_db.py
 
-# Wait for health check to pass
-docker-compose ps  # Should show "healthy"
-
-# View logs
-docker-compose logs -f postgres
+# Manually
+psql -h localhost -U agent_user -d autonomous_agent -f scripts/init_db.sql
 ```
 
-### 5.2 Manual Setup (Local PostgreSQL)
+### Connecting to Database
 
-**Step 1: Create Database**
+**Python** (via sqlalchemy):
+```python
+from src.memory.db_manager import DatabaseManager
+
+db_manager = DatabaseManager(config)
+async with db_manager.get_connection() as conn:
+    await conn.execute("SELECT * FROM tasks")
+```
+
+**psql CLI**:
 ```bash
-sudo -u postgres psql -c "CREATE DATABASE autonomous_agent;"
-sudo -u postgres psql -c "CREATE USER agent_user WITH PASSWORD 'your_password';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE autonomous_agent TO agent_user;"
+# Connect
+psql -h localhost -U agent_user -d autonomous_agent
+
+# Useful commands
+\dt                    # List tables
+\d tasks                # Describe table
+SELECT COUNT(*) FROM tasks;
 ```
 
-**Step 2: Install pgvector Extension**
-```bash
-sudo apt install postgresql-14-pgvector
+### Database Maintenance
 
-# Enable extension
-sudo -u postgres psql -d autonomous_agent -c "CREATE EXTENSION IF NOT EXISTS vector;"
-```
-
-**Step 3: Run Schema Script**
-```bash
-psql -U agent_user -d autonomous_agent -f scripts/init_db.sql
-```
-
-### 5.3 Database Schema (init_db.sql)
-
-**Location**: `scripts/init_db.sql` (202 lines)
-
-**Key Tables**:
-- `tasks`: Main task tracking
-- `iterations`: Iteration history
-- `failures`: Error memory with embeddings
-- `patterns`: Success patterns with embeddings
-- `metrics`: Performance metrics
-- `approvals`: User approval logs
-
-**Indexes**:
-- B-tree indexes on foreign keys
-- IVFFlat indexes on vector columns (for similarity search)
-
-**Running Manually**:
-```bash
-psql -U postgres -d autonomous_agent -f scripts/init_db.sql
-```
-
-### 5.4 Database Migrations
-
-**Current State**: No formal migration system (MVP)
-
-**Future**: Use Alembic (SQLAlchemy migrations)
-
-**Manual Migration Example**:
-
-**Add a new column to tasks table:**
-```sql
--- Create migration file: migrations/001_add_language_version.sql
-
-BEGIN;
-
-ALTER TABLE tasks ADD COLUMN language_version VARCHAR(20);
-
--- Backfill existing data
-UPDATE tasks SET language_version = '3.11' WHERE language = 'python';
-UPDATE tasks SET language_version = '18.0' WHERE language = 'node';
-
-COMMIT;
-```
-
-**Run migration:**
-```bash
-psql -U postgres -d autonomous_agent -f migrations/001_add_language_version.sql
-```
-
-### 5.5 Database Maintenance
-
-**Backup Database:**
+**Backup**:
 ```bash
 # Full backup
-docker-compose exec postgres pg_dump -U postgres autonomous_agent > backup.sql
+pg_dump -h localhost -U agent_user autonomous_agent > backup.sql
 
-# Restore from backup
-docker-compose exec -T postgres psql -U postgres autonomous_agent < backup.sql
+# Backup specific table
+pg_dump -h localhost -U agent_user -t patterns autonomous_agent > patterns.sql
 ```
 
-**Vacuum Database** (reclaim space, update stats):
+**Restore**:
 ```bash
-docker-compose exec postgres psql -U postgres -d autonomous_agent -c "VACUUM ANALYZE;"
+psql -h localhost -U agent_user autonomous_agent < backup.sql
 ```
 
-**Check Database Size:**
-```bash
-docker-compose exec postgres psql -U postgres -d autonomous_agent -c "
-SELECT pg_size_pretty(pg_database_size('autonomous_agent')) AS size;
-"
+**Cleanup old data**:
+```sql
+-- Delete tasks older than 30 days
+DELETE FROM tasks WHERE created_at < NOW() - INTERVAL '30 days';
+
+-- Clean up orphaned records
+DELETE FROM iterations WHERE task_id NOT IN (SELECT task_id FROM tasks);
 ```
 
 ---
 
-## 6. Docker Setup
+## Docker Setup
 
-### 6.1 Docker Images
+### Docker Installation
 
-**PostgreSQL Image**: `pgvector/pgvector:pg16`
-- Pre-built with pgvector extension
-- Based on official PostgreSQL 16 image
+**Linux**:
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+# Log out and back in
+```
 
-**Sandbox Images**:
-- **Python**: Custom image based on `python:3.11-slim`
-- **Node.js**: Custom image based on `node:18-slim`
+**macOS**:
+```bash
+brew install --cask docker
+# Open Docker Desktop app
+```
 
-**Building Sandbox Images:**
+**Windows**:
+- Download Docker Desktop from docker.com
+- Enable WSL2 backend in settings
 
+### Verifying Installation
+
+```bash
+docker --version      # Should be 20.10+
+docker-compose --version
+docker info
+```
+
+### Docker Images
+
+**PostgreSQL**:
+```bash
+# Pull image
+docker pull pgvector/pgvector:pg15
+
+# Run standalone
+docker run -d \
+  --name my-postgres \
+  -e POSTGRES_DB=autonomous_agent \
+  -e POSTGRES_USER=agent_user \
+  -e POSTGRES_PASSWORD=secret \
+  -p 5432:5432 \
+  pgvector/pgvector:pg15
+```
+
+**Sandbox** (Dockerfile.sandbox):
 ```dockerfile
-# Dockerfile.sandbox.python
 FROM python:3.11-slim
 
-# Create non-root user
+RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
 RUN useradd -m -u 1000 sandbox_user
 
-# Install common dependencies
-RUN pip install --no-cache-dir pytest hypothesis
-
-# Set working directory
 WORKDIR /workspace
-
-# Switch to non-root user
 USER sandbox_user
 
-# Default command
 CMD ["/bin/bash"]
 ```
 
-**Build and Tag:**
+Build:
 ```bash
-docker build -f Dockerfile.sandbox.python -t autonomous-agent-sandbox:python3.11 .
-docker build -f Dockerfile.sandbox.node -t autonomous-agent-sandbox:node18 .
+docker build -f Dockerfile.sandbox -t python-sandbox .
 ```
 
-### 6.2 Docker Compose Full Stack
+### Docker Compose
 
-```yaml
-# docker-compose.yml (full stack)
-
-version: '3.8'
-
-services:
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: autonomous_agent_db
-    environment:
-      POSTGRES_DB: autonomous_agent
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    container_name: autonomous_agent_cache
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-
-  agent:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: autonomous_agent
-    environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DATABASE_URL: postgresql://postgres:${DB_PASSWORD}@postgres:5432/autonomous_agent
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    volumes:
-      - ./autonomous_agent:/app
-      - /var/run/docker.sock:/var/run/docker.sock  # For spawning sandbox containers
-    command: python -m src.main run --task "Test task"
-
-volumes:
-  postgres_data:
-  redis_data:
-```
-
-**Start Full Stack:**
+**Start all services**:
 ```bash
 docker-compose up -d
+```
 
-# View logs
+**View logs**:
+```bash
 docker-compose logs -f
+```
 
-# Stop all services
+**Stop services**:
+```bash
 docker-compose down
 ```
 
-### 6.3 Docker Best Practices
-
-**1. Use specific tags, not `latest`:**
-```yaml
-# Bad
-image: postgres:latest
-
-# Good
-image: pgvector/pgvector:pg16
-```
-
-**2. Set resource limits:**
-```yaml
-services:
-  postgres:
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
-        reservations:
-          memory: 2G
-```
-
-**3. Use health checks:**
-```yaml
-healthcheck:
-  test: ["CMD-SHELL", "pg_isready -U postgres"]
-  interval: 10s
-  timeout: 5s
-  retries: 5
-```
-
-**4. Persist data with volumes:**
-```yaml
-volumes:
-  - postgres_data:/var/lib/postgresql/data  # Named volume (persistent)
-  # Not: /tmp/data:/var/lib/postgresql/data (lost on reboot)
+**Restart specific service**:
+```bash
+docker-compose restart postgres
 ```
 
 ---
 
-## 7. Dependency Approval System
+## Dependency Approval System
 
-### 7.1 How It Works
+### Allowlist Approach
 
-**Process**:
-1. Agent generates code with `import requests`
-2. Tester tries to run tests → ImportError
-3. Agent detects missing dependency
-4. System checks `allowed_deps.json`:
-   - If in `allowed` list → Prompt user
-   - If in `blocked` list → Reject immediately
-   - If not in list → Prompt with warning
-5. User approves or denies
-6. If approved: User manually installs (`pip install requests`)
-7. Agent retries test execution
-
-### 7.2 Configuration
-
-**File**: `config/allowed_deps.json`
-
+All dependencies must be pre-approved in `config/allowed_deps.json`:
 ```json
 {
-  "python": {
-    "allowed": ["flask", "requests", "pandas", ...],
-    "blocked": ["os", "subprocess", ...],
-    "approval_required": ["requests", "httpx", ...]
-  }
+  "approved": [
+    {"name": "flask", "max_version": "3.0.0"},
+    {"name": "requests", "max_version": "2.31.0"}
+  ]
 }
 ```
 
-### 7.3 User Approval Prompt
+### Approval Flow
 
-```
-╭────────────────────────────────────────────────────────────────╮
-│ 📦 Dependency Installation Required                            │
-├────────────────────────────────────────────────────────────────┤
-│ Package: requests                                              │
-│ Language: Python                                               │
-│ Purpose: HTTP library for API calls                            │
-│ Status: ✓ Allowed (in allowlist)                              │
-│                                                                │
-│ The generated code requires this dependency.                   │
-│                                                                │
-│ Approve installation? (Y/n)                                    │
-╰────────────────────────────────────────────────────────────────╯
-```
+1. Coder agent generates code with dependencies
+2. Check against allowlist
+3. If not approved:
+   - Block installation
+   - Prompt user: "Install dependency: X (version Y)? [Y/n]"
+   - Store decision in `approvals` table
+4. If user approves: Add to allowlist or install manually
 
-**If approved:**
-```
-Please run: pip install requests
-Press Enter when ready to continue...
+### Adding New Dependencies
+
+**Option 1: Manual addition**:
+```bash
+# Edit config/allowed_deps.json
+# Add dependency
+# Restart agent
 ```
 
-### 7.4 Automatic Approval (Future)
+**Option 2: Via CLI approval**:
+- Agent requests dependency
+- User approves
+- Dependency added to temporary allowlist for task
+- Optionally persist to global allowlist
 
-**Config**: `config/settings.yaml`
+### Blocked Dependencies
 
-```yaml
-dependencies:
-  auto_approve_allowed: true     # Auto-approve packages in allowlist
-  auto_install: false            # Never auto-install (security)
-  prompt_timeout_seconds: 300    # 5 minutes to respond
-```
+Never allow (hardcoded in safety_checker.py):
+- `eval`, `exec`, `__import__` (built-ins)
+- `os`, `subprocess`, `pty`, `socket` (dangerous modules)
 
 ---
 
-## 8. Environment Variables
+## Troubleshooting
 
-### 8.1 Required Variables
+### Common Issues
 
-**File**: `.env`
-
+**PostgreSQL connection failed**:
 ```bash
-# OpenAI API
-OPENAI_API_KEY=sk-...          # Required: Your OpenAI API key
-OPENAI_ORG_ID=org-...          # Optional: Organization ID
+# Check if running
+docker ps | grep postgres
 
-# Database
-DB_PASSWORD=your_secure_password  # Required: PostgreSQL password
-DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@localhost:5432/autonomous_agent
+# Check logs
+docker-compose logs postgres
 
-# Environment
-ENVIRONMENT=development         # development or production
-LOG_LEVEL=INFO                 # DEBUG, INFO, WARNING, ERROR
+# Restart
+docker-compose restart postgres
 
-# Optional: Redis cache
-REDIS_URL=redis://localhost:6379
+# Verify connection
+psql -h localhost -U agent_user -d autonomous_agent -c "SELECT 1"
 ```
 
-### 8.2 Loading Environment Variables
-
-**Automatic Loading** (using python-dotenv):
-```python
-from dotenv import load_dotenv
-import os
-
-load_dotenv()  # Loads .env file
-
-api_key = os.getenv("OPENAI_API_KEY")
-db_password = os.getenv("DB_PASSWORD")
-```
-
-**Manual Loading**:
+**Docker permission denied**:
 ```bash
-export OPENAI_API_KEY=sk-...
-export DB_PASSWORD=your_password
-python -m src.main run --task "Test task"
+# Add user to docker group
+sudo usermod -aG docker $USER
+# Log out and back in
 ```
 
-### 8.3 Security Best Practices
+**OpenAI API rate limit**:
+- Check usage at https://platform.openai.com/usage
+- Wait for quota reset or upgrade plan
+- Configure fallback models in `config/openai.yaml`
 
-**1. Never commit .env to Git:**
+**pgvector extension not found**:
+```sql
+-- Connect to database
+psql -h localhost -U agent_user -d autonomous_agent
+
+-- Enable extension
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+**Python import errors**:
 ```bash
-# .gitignore
-.env
-.env.*
-!.env.example
+# Reinstall dependencies
+pip install -r requirements.txt --force-reinstall
+
+# Check virtual environment activated
+which python  # Should point to venv
 ```
 
-**2. Use .env.example as template:**
+**Container spawn failed**:
+- Check Docker daemon: `docker info`
+- Check disk space: `df -h`
+- Check logs: `docker-compose logs`
+
+### Debug Mode
+
+Enable debug logging:
 ```bash
-# .env.example
-OPENAI_API_KEY=sk-your-key-here
-DB_PASSWORD=your-password-here
+export LOG_LEVEL=debug
+python -m src.main run
 ```
 
-**3. Rotate secrets regularly:**
-- OpenAI API keys: Every 90 days
-- Database passwords: Every 180 days
-
-**4. Use secrets management in production:**
-- AWS Secrets Manager
-- HashiCorp Vault
-- Google Secret Manager
-
----
-
-## 9. Troubleshooting
-
-### 9.1 Common Issues
-
-#### Issue 1: "ModuleNotFoundError: No module named 'openai'"
-
-**Cause**: Dependencies not installed
-
-**Solution**:
-```bash
-pip install -r requirements.txt
-```
-
-#### Issue 2: "Could not connect to database"
-
-**Cause**: PostgreSQL not running or wrong credentials
-
-**Solution**:
-```bash
-# Check if PostgreSQL is running
-docker-compose ps
-
-# Start PostgreSQL
-docker-compose up -d postgres
-
-# Check credentials in .env file
-cat .env | grep DB_PASSWORD
-```
-
-#### Issue 3: "Docker daemon is not running"
-
-**Cause**: Docker service not started
-
-**Solution**:
-```bash
-# Linux
-sudo systemctl start docker
-
-# macOS/Windows
-# Open Docker Desktop application
-```
-
-#### Issue 4: "pgvector extension not found"
-
-**Cause**: pgvector not installed in PostgreSQL
-
-**Solution**:
-```bash
-# If using Docker Compose (recommended)
-docker-compose down
-docker-compose up -d postgres  # Uses pgvector/pgvector image
-
-# If using local PostgreSQL
-sudo apt install postgresql-14-pgvector
-psql -U postgres -d autonomous_agent -c "CREATE EXTENSION vector;"
-```
-
-#### Issue 5: "OpenAI API key invalid"
-
-**Cause**: API key not set or incorrect
-
-**Solution**:
-```bash
-# Check .env file
-cat .env | grep OPENAI_API_KEY
-
-# Test API key manually
-curl https://api.openai.com/v1/models \
-  -H "Authorization: Bearer $OPENAI_API_KEY"
-
-# If invalid, get new key from https://platform.openai.com/api-keys
-```
-
-### 9.2 Diagnostic Tools
-
-**Run diagnostics:**
-```bash
-python scripts/diagnose.py
-```
-
-**Output**:
-```
-Checking system requirements...
-✓ Python version: 3.11.5 (OK)
-✓ Docker installed: 24.0.5 (OK)
-✗ PostgreSQL connection: Failed (Connection refused)
-  → Solution: Start PostgreSQL with: docker-compose up -d postgres
-
-✓ OpenAI API key: Valid
-✓ Configuration files: All present
-✗ Workspace directory: Not writable
-  → Solution: chmod 755 autonomous_agent/sandbox/workspace/
-
-2 issues found. Fix them and run again.
-```
-
-### 9.3 Debug Mode
-
-**Enable verbose logging:**
+Or set in `config/settings.yaml`:
 ```yaml
-# config/settings.yaml
 logging:
-  level: "DEBUG"
+  level: debug
 ```
 
-**Or use environment variable:**
-```bash
-export LOG_LEVEL=DEBUG
-python -m src.main run --task "Test"
-```
+### Health Checks
 
-**View debug logs:**
+**Check all services**:
 ```bash
-tail -f logs/autonomous_agent.log | jq '.'
+# PostgreSQL
+docker-compose ps postgres
+
+# OpenAI API
+curl -H "Authorization: Bearer $OPENAI_API_KEY" \
+  https://api.openai.com/v1/models
+
+# Database connection
+python -c "from src.memory.db_manager import DatabaseManager; print('OK')"
 ```
 
 ---
 
-## 10. Upgrading
+## Upgrading
 
-### 10.1 Upgrading Python Dependencies
+### Upgrading Python Dependencies
 
 ```bash
-# Check outdated packages
-pip list --outdated
-
-# Upgrade specific package
+# Update single package
 pip install --upgrade openai
 
-# Update requirements.txt
-pip freeze > requirements.txt
+# Update all
+pip install --upgrade -r requirements.txt
 
-# Test after upgrade
-pytest tests/ -v
+# Check for vulnerabilities
+pip-audit
 ```
 
-### 10.2 Upgrading Database
+### Upgrading PostgreSQL
 
-**Minor version** (e.g., PostgreSQL 14.10 → 14.11):
 ```bash
-docker-compose down
-docker-compose pull postgres  # Get latest image
-docker-compose up -d postgres
-```
+# Stop container
+docker-compose stop postgres
 
-**Major version** (e.g., PostgreSQL 14 → 16):
-```bash
-# 1. Backup database
-docker-compose exec postgres pg_dump -U postgres autonomous_agent > backup.sql
+# Backup database
+docker-compose exec postgres pg_dump -U agent_user autonomous_agent > backup.sql
 
-# 2. Update docker-compose.yml
-#    image: pgvector/pgvector:pg14 → pg16
+# Pull new image
+docker pull pgvector/pgvector:pg16
 
-# 3. Recreate container
-docker-compose down -v  # Warning: Destroys data
+# Update docker-compose.yml image version
+# Restart
 docker-compose up -d postgres
 
-# 4. Restore backup
-docker-compose exec -T postgres psql -U postgres autonomous_agent < backup.sql
+# Restore backup if needed
+docker-compose exec -T postgres psql -U agent_user autonomous_agent < backup.sql
 ```
 
-### 10.3 Upgrading Configuration
+### Database Migrations
 
-**When adding new config options:**
-
-1. **Add default value**:
-```yaml
-# config/settings.yaml
-new_feature:
-  enabled: false  # Default (safe)
+**Create migration script**:
+```bash
+# scripts/migrate_db_v2.py
+# Apply schema changes
+# Migrate data if needed
 ```
 
-2. **Update config loader**:
-```python
-# src/config_loader.py
-new_feature_enabled = config.get("new_feature", {}).get("enabled", False)
+**Run migration**:
+```bash
+python scripts/migrate_db_v2.py
 ```
 
-3. **Document in DEPENDENCIES.md** (this file)
-
-### 10.4 Breaking Changes
-
-**v1.0 → v2.0 (Hypothetical)**:
-
-**Breaking Change**: Database schema modified
-
-**Migration Steps**:
-1. Backup database: `pg_dump ... > backup.sql`
-2. Run migration: `python scripts/migrate_v1_to_v2.py`
-3. Test: `pytest tests/ -v`
-4. If issues: Restore backup `psql ... < backup.sql`
+**Best practices**:
+1. Backup before migration
+2. Test migration on staging database
+3. Rollback script prepared
+4. Atomic migrations (all or nothing)
 
 ---
 
-## 11. Production Deployment Checklist
+## Development Dependencies
 
-### 11.1 Pre-Deployment
+For development/testing:
 
-- [ ] All dependencies pinned to specific versions
-- [ ] Environment variables set (not using .env file)
-- [ ] Database backups automated
-- [ ] Log rotation configured
-- [ ] Resource limits set (Docker, PostgreSQL)
-- [ ] Secrets stored in vault (not environment variables)
-- [ ] Monitoring configured (Prometheus, Sentry)
-- [ ] Health checks configured
-- [ ] Load testing completed
+**requirements-dev.txt**:
+```txt
+# Additional testing
+pytest-mock==3.12.0
+pytest-xdist==3.5.0  # Parallel tests
 
-### 11.2 Deployment
+# Code quality
+black==24.1.0
+isort==5.13.0
+mypy==1.8.0
+flake8==7.0.0
 
-- [ ] Use production-grade PostgreSQL (RDS, Cloud SQL)
-- [ ] Use managed Docker (ECS, GKE)
-- [ ] Enable TLS for database connections
-- [ ] Set up firewall rules (restrict database access)
-- [ ] Use CDN for static assets (if applicable)
-- [ ] Configure auto-scaling (if needed)
+# Documentation
+sphinx==7.2.0
+sphinx-rtd-theme==2.0.0
 
-### 11.3 Post-Deployment
+# Development
+ipython==8.20.0
+ipdb==0.13.13
+```
 
-- [ ] Monitor logs for errors
-- [ ] Monitor metrics (task success rate, latency)
-- [ ] Test with production data
-- [ ] Set up alerts (high error rate, high cost)
-- [ ] Document deployment process
-- [ ] Plan for disaster recovery
+Install:
+```bash
+pip install -r requirements-dev.txt
+```
 
 ---
 
-**Last Updated**: 2026-01-16
-**Maintained By**: DevOps Team
-**Related Documents**: `AGENT-PLANNING.md`, `AGENT-EXECUTION.md`, `ARCHITECTURE.md`, `FUNCTIONALITY.md`
+**Last Updated**: 2025-01-21
+**Purpose**: Dependency and setup documentation for developers
