@@ -17,7 +17,7 @@ Generated Code
     ↓
 [3] User Approval ← Human review for risky operations
     ↓
-[4] Sandbox (Docker or subprocess) ← Isolated execution environment
+[4] Docker Sandbox ← Isolated execution environment (Optional)
 ```
 
 **Note**: Docker provides stronger isolation but is optional. Subprocess execution available as fallback.
@@ -285,15 +285,13 @@ class ApprovalManager:
 
 ---
 
-## Layer 4: Sandbox Execution
-
-**Files**: `src/sandbox/docker_executor.py`, `src/sandbox/subprocess_executor.py`
-
-### Option 1: Docker Sandbox (Recommended)
+## Layer 4: Docker Sandbox (Optional)
 
 **File**: `src/sandbox/docker_executor.py`
 
-**Container Configuration:**
+Docker sandboxing provides the highest level of isolation but is optional. If Docker is not available, the system can fall back to local execution (with reduced isolation).
+
+### Container Configuration
 
 ```python
 container_config = {
@@ -459,7 +457,7 @@ Before committing code that executes user-generated code:
 - [ ] AST scanning blocks eval, exec, __import__
 - [ ] Bandit scan passes (no HIGH severity issues)
 - [ ] User approval implemented for network/subprocess
-- [ ] Docker sandboxing with resource limits
+- [ ] Docker sandboxing with resource limits (if enabled)
 - [ ] Path validation prevents directory traversal
 - [ ] Input sanitization for file paths and commands
 - [ ] No secrets logged (API keys, passwords redacted)

@@ -10,8 +10,9 @@ Quick guide to set up and start working on the Miracle autonomous coding agent.
 
 **Required:**
 - Python 3.11+
-- PostgreSQL 14+ (see database options below)
+- PostgreSQL 14+ (Can be via Docker or local installation)
 - OpenAI API key
+- Docker and Docker Compose (Optional, for sandboxed execution)
 
 **Optional:**
 - Docker and Docker Compose (for sandboxed code execution)
@@ -112,7 +113,7 @@ autonomous_agent/
 
 ## Running the System
 
-### Start a New Task
+### Start a New Task (Supports Any Language)
 
 ```bash
 python -m src.main run \
@@ -166,7 +167,7 @@ python -c "from src.memory.db_manager import DatabaseManager; import asyncio; as
 # Check OpenAI API
 python -c "from src.llm.openai_client import OpenAIClient; import asyncio; asyncio.run(OpenAIClient().test_connection())"
 
-# Check Docker (if using Docker sandbox)
+# Check Docker (Optional)
 docker ps
 
 # Run minimal test suite
@@ -221,9 +222,7 @@ python scripts/setup_db.py
 - Check API rate limits at platform.openai.com
 - Try fallback model in `config/openai.yaml`
 
-### Sandbox Issues
-
-**If using Docker sandbox:**
+### Docker Sandbox Issues (If using Docker)
 ```bash
 # Check Docker daemon
 docker info

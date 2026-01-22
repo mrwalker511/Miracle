@@ -61,7 +61,7 @@ This documentation is organized into focused, concise modules for better AI agen
 
 ## Migration from Monolithic Documentation
 
-This structure replaces the original `ARCHITECTURE.md` (1622 lines) with:
+This structure replaces the original `ARCHITECTURE.md` (legacy version preserved in `docs/archive/`) with:
 - 10 focused files
 - Better organization
 - Improved AI agent efficiency
