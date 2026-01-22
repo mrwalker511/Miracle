@@ -6,7 +6,7 @@ Multi-layer security architecture for safe code execution.
 
 ## Overview
 
-The system uses defense-in-depth with four security layers:
+The system uses defense-in-depth with multiple security layers:
 
 ```
 Generated Code
@@ -17,8 +17,10 @@ Generated Code
     ↓
 [3] User Approval ← Human review for risky operations
     ↓
-[4] Docker Sandbox ← Isolated execution environment
+[4] Sandbox (Docker or subprocess) ← Isolated execution environment
 ```
+
+**Note**: Docker provides stronger isolation but is optional. Subprocess execution available as fallback.
 
 ---
 
@@ -283,11 +285,15 @@ class ApprovalManager:
 
 ---
 
-## Layer 4: Docker Sandbox
+## Layer 4: Sandbox Execution
+
+**Files**: `src/sandbox/docker_executor.py`, `src/sandbox/subprocess_executor.py`
+
+### Option 1: Docker Sandbox (Recommended)
 
 **File**: `src/sandbox/docker_executor.py`
 
-### Container Configuration
+**Container Configuration:**
 
 ```python
 container_config = {
@@ -316,7 +322,7 @@ container_config = {
 }
 ```
 
-### What It Prevents
+**What It Prevents:**
 
 - **CPU/RAM exhaustion**: Resource limits enforced
 - **Network access**: Disabled by default
@@ -325,7 +331,7 @@ container_config = {
 - **Infinite loops**: 5-minute timeout
 - **Fork bombs**: Process limits
 
-### Dockerfile
+**Dockerfile:**
 
 ```dockerfile
 FROM python:3.11-slim
@@ -345,6 +351,30 @@ USER sandbox_user
 # Default command
 CMD ["/bin/bash"]
 ```
+
+### Option 2: Subprocess Execution (Fallback)
+
+**File**: `src/sandbox/subprocess_executor.py`
+
+**When to use**: Docker not available or not desired
+
+**Configuration**: Set `sandbox.use_docker: false` in `config/settings.yaml`
+
+**Security measures**:
+- AST scanning (Layer 1)
+- Bandit SAST (Layer 2)
+- User approval (Layer 3)
+- Working directory restrictions
+- Timeout enforcement
+- Process resource limits (platform-dependent)
+
+**Limitations**:
+- Weaker filesystem isolation
+- No containerized network isolation
+- Host environment dependencies
+- OS-dependent resource limits
+
+**Trade-off**: Subprocess is simpler to set up but provides fewer security guarantees than Docker.
 
 ---
 
