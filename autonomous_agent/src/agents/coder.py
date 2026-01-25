@@ -66,12 +66,10 @@ class CoderAgent(BaseAgent):
             previous_errors=previous_errors or "None"
         )
 
-        if str(language).lower() in {"node", "javascript", "js"}:
-            user_message = (
-                "Runtime: Node.js (JavaScript).\n"
-                "Prefer built-in Node APIs (no external dependencies unless required).\n"
-                + user_message
-            )
+        # Add language-specific context to the user message
+        language_context = self._get_language_context(language)
+        if language_context:
+            user_message = language_context + "\n" + user_message
 
         # Get coding tools
         tools = get_coding_tools()
@@ -242,6 +240,32 @@ class CoderAgent(BaseAgent):
             self.logger.error("file_listing_failed", error=str(e))
             return {'error': str(e)}
 
+    def _get_language_context(self, language: str) -> str:
+        """Get language-specific context for code generation."""
+        language = str(language).lower()
+        
+        contexts = {
+            "node": "Runtime: Node.js (JavaScript).\nPrefer built-in Node APIs (no external dependencies unless required).",
+            "javascript": "Runtime: Node.js (JavaScript).\nPrefer built-in Node APIs (no external dependencies unless required).",
+            "js": "Runtime: Node.js (JavaScript).\nPrefer built-in Node APIs (no external dependencies unless required).",
+            "typescript": "Runtime: Node.js (TypeScript).\nUse modern TypeScript features. Prefer built-in Node APIs.\nInclude type annotations for public functions.",
+            "ts": "Runtime: Node.js (TypeScript).\nUse modern TypeScript features. Prefer built-in Node APIs.\nInclude type annotations for public functions.",
+            "java": "Runtime: Java (JVM).\nUse modern Java features (var, records, sealed classes).\nFollow standard Java naming conventions.\nInclude Javadoc for public methods.",
+            "csharp": "Runtime: C# (.NET).\nUse modern C# features (records, pattern matching, nullable reference types).\nFollow .NET naming conventions.\nInclude XML documentation for public members.",
+            "c#": "Runtime: C# (.NET).\nUse modern C# features (records, pattern matching, nullable reference types).\nFollow .NET naming conventions.\nInclude XML documentation for public members.",
+            "go": "Runtime: Go.\nUse idiomatic Go patterns.\nFollow Go naming conventions (camelCase for variables, PascalCase for exported).\nInclude godoc comments for exported functions.",
+            "golang": "Runtime: Go.\nUse idiomatic Go patterns.\nFollow Go naming conventions (camelCase for variables, PascalCase for exported).\nInclude godoc comments for exported functions.",
+            "rust": "Runtime: Rust.\nUse idiomatic Rust patterns (Result, Option, iterators).\nFollow Rust naming conventions (snake_case).\nInclude rustdoc comments for public items.",
+            "ruby": "Runtime: Ruby.\nUse idiomatic Ruby patterns.\nFollow Ruby naming conventions (snake_case for methods, PascalCase for classes).\nInclude RDoc comments for public methods.",
+            "php": "Runtime: PHP.\nUse modern PHP features (typed properties, named arguments).\nFollow PSR-12 coding style.\nInclude PHPDoc for public methods.",
+            "swift": "Runtime: Swift.\nUse idiomatic Swift patterns.\nFollow Swift API Design Guidelines.\nInclude documentation comments for public declarations.",
+            "kotlin": "Runtime: Kotlin (JVM).\nUse idiomatic Kotlin patterns.\nFollow Kotlin coding conventions.\nInclude KDoc for public declarations.",
+            "elixir": "Runtime: Elixir (BEAM).\nUse idiomatic Elixir patterns (pipes, pattern matching).\nFollow Elixir naming conventions (snake_case).\nInclude @doc and @moduledoc annotations.",
+            "python": "Runtime: Python.\nUse modern Python features (type hints, f-strings, walrus operator).\nFollow PEP 8 style guide.\nInclude docstrings for public functions."
+        }
+        
+        return contexts.get(language, "")
+
     def _extract_code_from_text(
         self,
         text: str,
@@ -265,7 +289,9 @@ class CoderAgent(BaseAgent):
 
         allowed_suffixes = (
             '.py', '.js', '.mjs', '.cjs', '.ts', '.json', '.md',
-            '.yml', '.yaml', '.txt', '.toml'
+            '.yml', '.yaml', '.txt', '.toml', '.java', '.cs', '.go',
+            '.rs', '.rb', '.php', '.swift', '.kt', '.ex', '.exs', '.gradle',
+            '.gradle.kts', '.xml', '.properties', '.mod', '.sum', '.toml'
         )
 
         for line in lines:
