@@ -12,6 +12,40 @@ orchestrator:
   checkpoint_interval: 5  # Save state every N iterations
   timeout_per_iteration: 600  # 10 minutes
 
+# Context hygiene settings for token management
+context_hygiene:
+  max_tokens: 128000           # Model context limit
+  warning_threshold: 0.50      # 50% - start monitoring
+  critical_threshold: 0.75     # 75% - consider compaction
+  overflow_threshold: 0.90     # 90% - force compaction
+  min_preserved_tokens: 4000   # Always keep for response
+
+# Execution hooks for safety guardrails
+execution_hooks:
+  enabled: true
+  hooks:
+    block_dangerous_commands:
+      enabled: true
+    protect_sensitive_files:
+      enabled: true
+    auto_format_code:
+      enabled: true
+    token_budget:
+      enabled: true
+      max_tokens: 50000
+    iteration_guard:
+      enabled: true
+      max_same_error: 3
+
+# Optional review phases
+review_phases:
+  code_review:
+    enabled: false             # Enable with --enable-review flag
+    block_on_critical: true    # Block progress on critical issues
+  security_audit:
+    enabled: false             # Enable with --enable-audit flag
+    block_on_critical: true    # Block progress on critical vulnerabilities
+
 sandbox:
   engine: "docker"
   workspace_root: "./sandbox/workspace"

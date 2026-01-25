@@ -1,4 +1,10 @@
-"""Main entry point for the autonomous coding agent."""
+"""Main entry point for the autonomous coding agent.
+
+Enhanced with:
+- Reprompter integration for structured task input
+- Code review and security audit options
+- Better task structuring before execution
+"""
 
 from __future__ import annotations
 
@@ -8,7 +14,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt
+from rich.prompt import Prompt, Confirm
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -19,6 +25,7 @@ from src.memory.db_manager import DatabaseManager
 from src.memory.vector_store import VectorStore
 from src.orchestrator import Orchestrator
 from src.ui.logger import get_logger, setup_logging
+from src.utils.reprompter import Reprompter, StructuredTask, ClarificationPriority
 
 console = Console()
 
@@ -39,12 +46,18 @@ def cli():
 @click.option("--language", "-l", default=None, help="Runtime language (python, node)")
 @click.option("--max-iterations", "-m", default=15, help="Maximum iterations")
 @click.option("--workspace", "-w", default=None, help="Path to workspace directory (overrides config)")
+@click.option("--enable-review", is_flag=True, help="Enable code review phase")
+@click.option("--enable-audit", is_flag=True, help="Enable security audit phase")
+@click.option("--skip-reprompter", is_flag=True, help="Skip task structuring with reprompter")
 def run(
     task: str,
     problem_type: str,
     language: str | None,
     max_iterations: int,
     workspace: str | None,
+    enable_review: bool,
+    enable_audit: bool,
+    skip_reprompter: bool,
 ):
     """Start a new autonomous coding task."""
 
@@ -68,7 +81,7 @@ def run(
                 configs["settings"] = {}
             if "sandbox" not in configs["settings"]:
                 configs["settings"]["sandbox"] = {}
-            
+
             configs["settings"]["sandbox"]["workspace_root"] = str(workspace_path)
             console.print(f"[green]Using workspace: {workspace_path}[/green]")
 
@@ -91,10 +104,6 @@ def run(
 
     language = str(language).lower()
 
-    console.print(f"\nTask: {task}")
-    console.print(f"Problem type: {problem_type}")
-    console.print(f"Language: {language}")
-
     # Initialize components
     try:
         openai_client = OpenAIClient(configs)
@@ -105,11 +114,80 @@ def run(
         logger.error("initialization_failed", error=str(e))
         return
 
-    # Create task
+    # Process task through reprompter for better structuring
+    structured_task: StructuredTask | None = None
+    goal = task
+
+    if not skip_reprompter:
+        try:
+            console.print("\n[dim]Analyzing task for better structuring...[/dim]")
+            reprompter = Reprompter(
+                openai_client=openai_client,
+                auto_fill_defaults=True,
+                min_clarity_score=7,
+            )
+
+            structured_task, questions = reprompter.process(task)
+
+            # Handle clarifying questions
+            if questions:
+                blocking_questions = [q for q in questions if q.priority == ClarificationPriority.BLOCKING]
+
+                if blocking_questions:
+                    console.print("\n[yellow]Some clarification would help:[/yellow]")
+                    answers = {}
+
+                    for q in blocking_questions:
+                        if q.options:
+                            answer = Prompt.ask(
+                                f"  [cyan]?[/cyan] {q.question}",
+                                choices=q.options,
+                                default=q.default_answer or q.options[0]
+                            )
+                        else:
+                            answer = Prompt.ask(
+                                f"  [cyan]?[/cyan] {q.question}",
+                                default=q.default_answer or ""
+                            )
+                        answers[q.question] = answer
+
+                    # Refine task with answers
+                    structured_task = reprompter.refine_with_answers(structured_task, answers)
+
+            # Use structured task info
+            if structured_task:
+                goal = structured_task.goal
+                language = structured_task.language or language
+                problem_type = structured_task.complexity.value if structured_task.complexity else problem_type
+
+                console.print(f"\n[green]Task structured:[/green]")
+                console.print(f"  Title: {structured_task.title}")
+                console.print(f"  Goal: {structured_task.goal}")
+                console.print(f"  Complexity: {structured_task.complexity.value}")
+
+        except Exception as e:
+            logger.warning("reprompter_failed", error=str(e))
+            console.print(f"[yellow]Reprompter skipped: {e}[/yellow]")
+            # Continue with original task
+
+    console.print(f"\nTask: {task}")
+    console.print(f"Problem type: {problem_type}")
+    console.print(f"Language: {language}")
+
+    if enable_review:
+        console.print("[cyan]Code review: enabled[/cyan]")
+    if enable_audit:
+        console.print("[cyan]Security audit: enabled[/cyan]")
+
+    # Create task in database
     task_id = db_manager.create_task(
         description=task,
-        goal=task,
-        metadata={"problem_type": problem_type, "language": language},
+        goal=goal,
+        metadata={
+            "problem_type": problem_type,
+            "language": language,
+            "structured_task": structured_task.to_xml() if structured_task else None,
+        },
     )
 
     console.print(f"\nTask created (ID: {task_id})")
@@ -118,7 +196,7 @@ def run(
         orchestrator = Orchestrator(
             task_id=task_id,
             task_description=task,
-            goal=task,
+            goal=goal,
             config=configs,
             db_manager=db_manager,
             vector_store=vector_store,
@@ -126,9 +204,18 @@ def run(
             max_iterations=max_iterations,
             problem_type=problem_type,
             language=language,
+            enable_code_review=enable_review,
+            enable_security_audit=enable_audit,
         )
 
-        console.print(f"\n[yellow]Starting autonomous execution (max {max_iterations} iterations)...[/yellow]\n")
+        phases = ["planning", "coding", "testing"]
+        if enable_review:
+            phases.insert(2, "reviewing")
+        if enable_audit:
+            phases.insert(-1, "auditing")
+
+        console.print(f"\n[yellow]Starting autonomous execution (max {max_iterations} iterations)...[/yellow]")
+        console.print(f"[dim]Phases: {' -> '.join(phases)}[/dim]\n")
 
         result = orchestrator.run()
 
