@@ -13,25 +13,37 @@ Build an autonomous agent that:
 
 **"The difference between a chatbot and an agent is the loop."**
 
+## ✨ New Features
+
+| Feature | What It Does |
+|---------|--------------|
+| **Reprompter** | Turns vague tasks into structured specs with clarifying questions |
+| **Context Hygiene** | Automatically manages memory to prevent quality degradation |
+| **Execution Hooks** | Blocks dangerous commands (`rm -rf`, etc.) automatically |
+| **Code Reviewer** | Optional phase that catches bugs before testing |
+| **Security Auditor** | Optional phase that finds vulnerabilities (OWASP-aware) |
+
+See [docs/FEATURES_GUIDE.md](docs/FEATURES_GUIDE.md) for the complete guide.
+
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│           ORCHESTRATOR                  │
-│    (State Machine Controller)           │
-│                                         │
-│  INIT → PLANNING → CODING → TESTING    │
-│              ↑            |              │
-│              └─REFLECTING─┘              │
-└────────┬─────┬──────┬─────┬────────────┘
-         │     │      │     │
-    ┌────▼┐ ┌──▼──┐ ┌▼───┐ ┌▼────────┐
-    │PLAN │ │CODE │ │TEST│ │ REFLECT │
-    │ NER │ │  R  │ │ ER │ │   OR    │
-    └─────┘ └─────┘ └────┘ └─────────┘
-         │     │      │     │
-         └─────┴──────┴─────┴───────▶ MEMORY
-                              (PostgreSQL + pgvector)
+┌──────────────────────────────────────────────────────────────┐
+│                      ORCHESTRATOR                            │
+│                 (State Machine Controller)                   │
+│                                                              │
+│  INIT → PLANNING → CODING → [REVIEW] → [AUDIT] → TESTING   │
+│              ↑                                  |            │
+│              └────────── REFLECTING ────────────┘            │
+└────────┬─────┬──────┬───────┬───────┬─────┬────────────────┘
+         │     │      │       │       │     │
+    ┌────▼┐ ┌──▼──┐ ┌─▼──┐ ┌──▼───┐ ┌─▼──┐ ┌▼────────┐
+    │PLAN │ │CODE │ │REV │ │AUDIT │ │TEST│ │ REFLECT │
+    │ NER │ │  R  │ │IEW │ │      │ │ ER │ │   OR    │
+    └─────┘ └─────┘ └────┘ └──────┘ └────┘ └─────────┘
+         │     │      │       │       │     │
+         └─────┴──────┴───────┴───────┴─────┴───────▶ MEMORY
+                                         (PostgreSQL + pgvector)
 ```
 
 ## 🚀 Quick Start
@@ -74,17 +86,27 @@ Build an autonomous agent that:
 
 ### Running a Task
 
-Python task:
+**Basic usage:**
 ```bash
-python -m src.main run --language python --task "Build a REST API for managing todo items with SQLite"
+python -m src.main run --task "Build a REST API for managing todo items"
 ```
 
-Node.js task:
+**With code review (catches bugs before testing):**
 ```bash
-python -m src.main run --language node --task "Build a Node.js CLI tool that prints the current time"
+python -m src.main run --task "..." --enable-review
 ```
 
-Or interactive mode:
+**With security audit (finds vulnerabilities):**
+```bash
+python -m src.main run --task "..." --enable-audit
+```
+
+**Production-ready (both checks):**
+```bash
+python -m src.main run --task "..." --enable-review --enable-audit
+```
+
+**Interactive mode:**
 ```bash
 python -m src.main run
 ```
@@ -100,36 +122,46 @@ python -m src.main history
 ```
 autonomous_agent/
 ├── config/                 # Configuration files (YAML)
-│   ├── settings.yaml      # System settings
+│   ├── settings.yaml      # System settings + context hygiene + hooks
 │   ├── database.yaml      # Database config
 │   ├── openai.yaml        # OpenAI API config
 │   ├── system_prompts.yaml # Agent prompts
 │   └── allowed_deps.json  # Dependency allowlist
+├── docs/
+│   └── FEATURES_GUIDE.md  # Complete guide to new features
 ├── src/
-│   ├── main.py           # CLI entry point
-│   ├── orchestrator.py   # State machine controller
+│   ├── main.py           # CLI entry point (+ reprompter integration)
+│   ├── orchestrator.py   # State machine controller (+ hygiene + hooks)
 │   ├── config_loader.py  # Config management
 │   ├── agents/           # Specialized agents
-│   │   ├── planner.py    # Task decomposition
-│   │   ├── coder.py      # Code generation
-│   │   ├── tester.py     # Test generation & execution
-│   │   └── reflector.py  # Error analysis
+│   │   ├── __init__.py       # Agent factory & registry
+│   │   ├── planner.py        # Task decomposition
+│   │   ├── coder.py          # Code generation
+│   │   ├── tester.py         # Test generation & execution
+│   │   ├── reflector.py      # Error analysis
+│   │   ├── code_reviewer.py  # Code quality analysis (NEW)
+│   │   └── security_auditor.py # Security scanning (NEW)
 │   ├── llm/              # LLM interface
 │   │   ├── openai_client.py  # Flexible OpenAI client
 │   │   ├── tools.py          # Function calling tools
 │   │   └── token_counter.py  # Usage tracking
 │   ├── memory/           # Database & vector store
 │   │   ├── db_manager.py     # PostgreSQL operations
-│   │   └── vector_store.py   # Similarity search
+│   │   ├── vector_store.py   # Similarity search
+│   │   └── failure_analyzer.py # Structured failure logging (ENHANCED)
 │   ├── sandbox/          # Code execution
-│   │   ├── safety_checker.py # AST + Bandit scanning
-│   │   └── docker_executor.py # Sandbox management
+│   │   ├── safety_checker.py   # AST + Bandit scanning
+│   │   ├── sandbox_manager.py  # Execution + hooks integration
+│   │   └── docker_executor.py  # Sandbox management
 │   ├── ui/               # User interface
 │   │   ├── cli.py        # Rich terminal UI
 │   │   └── logger.py     # Structured logging
 │   └── utils/            # Utilities
-│       ├── circuit_breaker.py # Prevent infinite loops
-│       └── metrics_collector.py # Performance tracking
+│       ├── circuit_breaker.py    # Prevent infinite loops
+│       ├── metrics_collector.py  # Performance tracking
+│       ├── context_hygiene.py    # Token management (NEW)
+│       ├── execution_hooks.py    # Safety guardrails (NEW)
+│       └── reprompter.py         # Task structuring (NEW)
 ├── scripts/
 │   ├── setup_db.py       # Database initialization
 │   └── init_db.sql       # Schema definition
