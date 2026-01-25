@@ -80,13 +80,10 @@ class TesterAgent(BaseAgent):
             signatures=signatures,
         )
 
-        if language in {"node", "javascript", "js"}:
-            user_message = (
-                "Runtime: Node.js (JavaScript).\n"
-                "Testing: Use the built-in node:test runner (no jest/mocha).\n"
-                "Prefer creating a single test file at 'test/generated.test.js'.\n\n"
-                + user_message
-            )
+        # Add language-specific testing context
+        test_context = self._get_testing_context(language)
+        if test_context:
+            user_message = test_context + "\n\n" + user_message
 
         messages = self.build_messages(user_message)
         tools = get_testing_tools()
@@ -116,8 +113,27 @@ class TesterAgent(BaseAgent):
                 continue
             content = str(content)
 
-            if language in {"node", "javascript", "js"}:
+            # Determine test file path based on language
+            if language in {"node", "javascript", "js", "typescript", "ts"}:
                 requested_path = "test/generated.test.js"
+            elif language == "java":
+                requested_path = "src/test/java/TestGenerated.java"
+            elif language == "csharp":
+                requested_path = "TestGenerated.cs"
+            elif language == "go":
+                requested_path = "generated_test.go"
+            elif language == "rust":
+                requested_path = "tests/generated_test.rs"
+            elif language == "ruby":
+                requested_path = "spec/generated_spec.rb"
+            elif language == "php":
+                requested_path = "tests/TestGenerated.php"
+            elif language == "swift":
+                requested_path = "Tests/GeneratedTests.swift"
+            elif language == "kotlin":
+                requested_path = "src/test/kotlin/TestGenerated.kt"
+            elif language == "elixir":
+                requested_path = "test/generated_test.exs"
             elif not requested_path:
                 requested_path = "test_generated.py"
 
@@ -140,6 +156,32 @@ class TesterAgent(BaseAgent):
             "success": test_file is not None,
             "test_file": test_file,
         }
+
+    def _get_testing_context(self, language: str) -> str:
+        """Get language-specific testing context."""
+        language = str(language).lower()
+        
+        contexts = {
+            "node": "Runtime: Node.js (JavaScript).\nTesting: Use the built-in node:test runner (no jest/mocha).\nPrefer creating a single test file at 'test/generated.test.js'.",
+            "javascript": "Runtime: Node.js (JavaScript).\nTesting: Use the built-in node:test runner (no jest/mocha).\nPrefer creating a single test file at 'test/generated.test.js'.",
+            "js": "Runtime: Node.js (JavaScript).\nTesting: Use the built-in node:test runner (no jest/mocha).\nPrefer creating a single test file at 'test/generated.test.js'.",
+            "typescript": "Runtime: Node.js (TypeScript).\nTesting: Use the built-in node:test runner.\nCreate test file at 'test/generated.test.js' that imports from compiled TypeScript.",
+            "ts": "Runtime: Node.js (TypeScript).\nTesting: Use the built-in node:test runner.\nCreate test file at 'test/generated.test.js' that imports from compiled TypeScript.",
+            "java": "Runtime: Java (JVM).\nTesting: Use JUnit 5.\nCreate test class in 'src/test/java' with @Test annotations.\nUse Assertions class for assertions.",
+            "csharp": "Runtime: C# (.NET).\nTesting: Use xUnit or NUnit.\nCreate test class with [Fact] or [Test] attributes.\nFollow AAA pattern (Arrange, Act, Assert).",
+            "c#": "Runtime: C# (.NET).\nTesting: Use xUnit or NUnit.\nCreate test class with [Fact] or [Test] attributes.\nFollow AAA pattern (Arrange, Act, Assert).",
+            "go": "Runtime: Go.\nTesting: Use built-in testing package.\nCreate test file with '_test.go' suffix.\nUse t.Run() for sub-tests and testing.T for assertions.",
+            "golang": "Runtime: Go.\nTesting: Use built-in testing package.\nCreate test file with '_test.go' suffix.\nUse t.Run() for sub-tests and testing.T for assertions.",
+            "rust": "Runtime: Rust.\nTesting: Use built-in test framework.\nCreate test module with #[cfg(test)] and #[test] attributes.\nUse assert macros for assertions.",
+            "ruby": "Runtime: Ruby.\nTesting: Use RSpec or Minitest.\nCreate spec file in 'spec/' directory.\nFollow BDD style with describe/it blocks.",
+            "php": "Runtime: PHP.\nTesting: Use PHPUnit.\nCreate test class extending TestCase.\nUse $this->assert* methods for assertions.",
+            "swift": "Runtime: Swift.\nTesting: Use XCTest.\nCreate test class extending XCTestCase.\nUse XCTAssert* functions for assertions.",
+            "kotlin": "Runtime: Kotlin (JVM).\nTesting: Use JUnit 5 with Kotlin.\nCreate test class with @Test annotations.\nUse Assertions.assert* functions.",
+            "elixir": "Runtime: Elixir (BEAM).\nTesting: Use ExUnit.\nCreate test module with use ExUnit.Case.\nUse assert macros for assertions.",
+            "python": "Runtime: Python.\nTesting: Use pytest.\nCreate test file with 'test_' prefix.\nUse assert statements and pytest fixtures."
+        }
+        
+        return contexts.get(language, "")
 
     def _extract_function_signatures(self, code_files: Dict[str, str]) -> str:
         signatures = []
@@ -165,6 +207,51 @@ class TesterAgent(BaseAgent):
                         signatures.append(f"// From {filename}\nconst {m.group(1)} = (...) =>")
                         continue
 
+                elif ext == ".java":
+                    # Java method signatures
+                    if re.match(r"\s*(public|private|protected|static|final|synchronized|native|abstract|strictfp|transient|volatile)\s+.+\s+[A-Za-z0-9_]+\s*\(", stripped):
+                        signatures.append(f"// From {filename}\n{stripped}")
+
+                elif ext == ".cs":
+                    # C# method signatures
+                    if re.match(r"\s*(public|private|protected|internal|static|async|virtual|override|abstract|sealed|partial)\s+.+\s+[A-Za-z0-9_]+\s*\(", stripped):
+                        signatures.append(f"// From {filename}\n{stripped}")
+
+                elif ext == ".go":
+                    # Go function signatures
+                    if re.match(r"^func\s+\([^)]+\)\s+[A-Za-z0-9_]+\s*\(", stripped) or re.match(r"^func\s+[A-Za-z0-9_]+\s*\(", stripped):
+                        signatures.append(f"// From {filename}\n{stripped}")
+
+                elif ext == ".rs":
+                    # Rust function signatures
+                    if re.match(r"^fn\s+[A-Za-z0-9_]+\s*\(", stripped) or re.match(r"^pub\s+fn\s+[A-Za-z0-9_]+\s*\(", stripped):
+                        signatures.append(f"// From {filename}\n{stripped}")
+
+                elif ext == ".rb":
+                    # Ruby method signatures
+                    if re.match(r"^\s*def\s+[A-Za-z0-9_]+\s*[(", stripped):
+                        signatures.append(f"# From {filename}\n{stripped}")
+
+                elif ext == ".php":
+                    # PHP function signatures
+                    if re.match(r"^\s*(public|private|protected|static|final|abstract)\s+function\s+[A-Za-z0-9_]+\s*\(", stripped) or re.match(r"^function\s+[A-Za-z0-9_]+\s*\(", stripped):
+                        signatures.append(f"// From {filename}\n{stripped}")
+
+                elif ext == ".swift":
+                    # Swift function signatures
+                    if re.match(r"^\s*(public|private|internal|fileprivate|open|static|class|func)\s+func\s+[A-Za-z0-9_]+\s*\(", stripped):
+                        signatures.append(f"// From {filename}\n{stripped}")
+
+                elif ext == ".kt":
+                    # Kotlin function signatures
+                    if re.match(r"^\s*(public|private|protected|internal|open|override|abstract|final)\s+fun\s+[A-Za-z0-9_]+\s*\(", stripped):
+                        signatures.append(f"// From {filename}\n{stripped}")
+
+                elif ext == ".ex":
+                    # Elixir function signatures
+                    if re.match(r"^\s*def\s+[A-Za-z0-9_]+\s*[(", stripped):
+                        signatures.append(f"# From {filename}\n{stripped}")
+
         return "\n".join(signatures) if signatures else "No functions found"
 
     def _extract_test_from_text(self, text: str, workspace: Path, language: str) -> Optional[str]:
@@ -186,8 +273,27 @@ class TesterAgent(BaseAgent):
 
         test_content = "\n".join(code_lines)
 
-        if language in {"node", "javascript", "js"}:
+        # Determine test file path based on language
+        if language in {"node", "javascript", "js", "typescript", "ts"}:
             test_file = "test/generated.test.js"
+        elif language == "java":
+            test_file = "src/test/java/TestGenerated.java"
+        elif language == "csharp":
+            test_file = "TestGenerated.cs"
+        elif language == "go":
+            test_file = "generated_test.go"
+        elif language == "rust":
+            test_file = "tests/generated_test.rs"
+        elif language == "ruby":
+            test_file = "spec/generated_spec.rb"
+        elif language == "php":
+            test_file = "tests/TestGenerated.php"
+        elif language == "swift":
+            test_file = "Tests/GeneratedTests.swift"
+        elif language == "kotlin":
+            test_file = "src/test/kotlin/TestGenerated.kt"
+        elif language == "elixir":
+            test_file = "test/generated_test.exs"
         else:
             test_file = "test_generated.py"
 

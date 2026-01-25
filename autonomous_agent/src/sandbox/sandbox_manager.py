@@ -109,12 +109,39 @@ class SandboxManager:
             cmd = ["python", "-m", "pytest", test_file, "-q", "--tb=short"]
             return self._run_command_and_parse_pytest(workspace, cmd, test_file)
 
-        if language in {"node", "javascript", "js"}:
+        if language in {"node", "javascript", "js", "typescript", "ts"}:
             if test_file:
                 cmd = ["node", "--test", test_file]
             else:
                 cmd = ["node", "--test"]
             return self._run_command_and_parse_node_test(workspace, cmd, test_file)
+
+        if language == "java":
+            return self._run_java_tests(workspace, test_file)
+
+        if language == "csharp":
+            return self._run_csharp_tests(workspace, test_file)
+
+        if language == "go":
+            return self._run_go_tests(workspace, test_file)
+
+        if language == "rust":
+            return self._run_rust_tests(workspace, test_file)
+
+        if language == "ruby":
+            return self._run_ruby_tests(workspace, test_file)
+
+        if language == "php":
+            return self._run_php_tests(workspace, test_file)
+
+        if language == "swift":
+            return self._run_swift_tests(workspace, test_file)
+
+        if language == "kotlin":
+            return self._run_kotlin_tests(workspace, test_file)
+
+        if language == "elixir":
+            return self._run_elixir_tests(workspace, test_file)
 
         return {
             "passed": False,
@@ -349,3 +376,297 @@ class SandboxManager:
             counts["total"] = sum(v for k, v in counts.items() if k in {"passed", "failed", "error"})
 
         return counts
+
+    def _run_java_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+        """Run Java tests using Gradle."""
+        try:
+            # Check if gradle is available
+            result = subprocess.run(["gradle", "--version"], capture_output=True, text=True, cwd=workspace)
+            if result.returncode != 0:
+                return {
+                    "passed": False,
+                    "error_message": "Gradle not found. Please install Gradle to run Java tests.",
+                    "test_results": {},
+                }
+            
+            # Run tests using gradle
+            result = subprocess.run(["gradle", "test"], capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            
+            return {
+                "passed": result.returncode == 0,
+                "test_file": test_file,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "error_message": result.stderr.strip() if result.returncode != 0 else None,
+                "test_results": {"raw_output": result.stdout + "\n" + result.stderr},
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": f"Java test execution timed out after {self.limits.execution_timeout} seconds",
+                "test_results": {},
+            }
+        except Exception as e:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": str(e),
+                "test_results": {},
+            }
+
+    def _run_csharp_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+        """Run C# tests using dotnet."""
+        try:
+            # Check if dotnet is available
+            result = subprocess.run(["dotnet", "--version"], capture_output=True, text=True, cwd=workspace)
+            if result.returncode != 0:
+                return {
+                    "passed": False,
+                    "error_message": ".NET SDK not found. Please install .NET SDK to run C# tests.",
+                    "test_results": {},
+                }
+            
+            # Run tests using dotnet
+            result = subprocess.run(["dotnet", "test"], capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            
+            return {
+                "passed": result.returncode == 0,
+                "test_file": test_file,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "error_message": result.stderr.strip() if result.returncode != 0 else None,
+                "test_results": {"raw_output": result.stdout + "\n" + result.stderr},
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": f"C# test execution timed out after {self.limits.execution_timeout} seconds",
+                "test_results": {},
+            }
+        except Exception as e:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": str(e),
+                "test_results": {},
+            }
+
+    def _run_go_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+        """Run Go tests."""
+        try:
+            cmd = ["go", "test", "./..."]
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            
+            return {
+                "passed": result.returncode == 0,
+                "test_file": test_file,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "error_message": result.stderr.strip() if result.returncode != 0 else None,
+                "test_results": {"raw_output": result.stdout + "\n" + result.stderr},
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": f"Go test execution timed out after {self.limits.execution_timeout} seconds",
+                "test_results": {},
+            }
+        except Exception as e:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": str(e),
+                "test_results": {},
+            }
+
+    def _run_rust_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+        """Run Rust tests."""
+        try:
+            cmd = ["cargo", "test"]
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            
+            return {
+                "passed": result.returncode == 0,
+                "test_file": test_file,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "error_message": result.stderr.strip() if result.returncode != 0 else None,
+                "test_results": {"raw_output": result.stdout + "\n" + result.stderr},
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": f"Rust test execution timed out after {self.limits.execution_timeout} seconds",
+                "test_results": {},
+            }
+        except Exception as e:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": str(e),
+                "test_results": {},
+            }
+
+    def _run_ruby_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+        """Run Ruby tests."""
+        try:
+            # Try rspec first, then minitest
+            cmd = ["bundle", "exec", "rspec"]
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            
+            if result.returncode != 0:
+                # Try minitest
+                cmd = ["ruby", "-Ilib:test", "-e", "require 'minitest/autorun'"]
+                result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            
+            return {
+                "passed": result.returncode == 0,
+                "test_file": test_file,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "error_message": result.stderr.strip() if result.returncode != 0 else None,
+                "test_results": {"raw_output": result.stdout + "\n" + result.stderr},
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": f"Ruby test execution timed out after {self.limits.execution_timeout} seconds",
+                "test_results": {},
+            }
+        except Exception as e:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": str(e),
+                "test_results": {},
+            }
+
+    def _run_php_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+        """Run PHP tests using PHPUnit."""
+        try:
+            cmd = ["php", "vendor/bin/phpunit"]
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            
+            return {
+                "passed": result.returncode == 0,
+                "test_file": test_file,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "error_message": result.stderr.strip() if result.returncode != 0 else None,
+                "test_results": {"raw_output": result.stdout + "\n" + result.stderr},
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": f"PHP test execution timed out after {self.limits.execution_timeout} seconds",
+                "test_results": {},
+            }
+        except Exception as e:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": str(e),
+                "test_results": {},
+            }
+
+    def _run_swift_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+        """Run Swift tests."""
+        try:
+            cmd = ["swift", "test"]
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            
+            return {
+                "passed": result.returncode == 0,
+                "test_file": test_file,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "error_message": result.stderr.strip() if result.returncode != 0 else None,
+                "test_results": {"raw_output": result.stdout + "\n" + result.stderr},
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": f"Swift test execution timed out after {self.limits.execution_timeout} seconds",
+                "test_results": {},
+            }
+        except Exception as e:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": str(e),
+                "test_results": {},
+            }
+
+    def _run_kotlin_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+        """Run Kotlin tests using Gradle."""
+        try:
+            # Check if gradle is available
+            result = subprocess.run(["gradle", "--version"], capture_output=True, text=True, cwd=workspace)
+            if result.returncode != 0:
+                return {
+                    "passed": False,
+                    "error_message": "Gradle not found. Please install Gradle to run Kotlin tests.",
+                    "test_results": {},
+                }
+            
+            # Run tests using gradle
+            result = subprocess.run(["gradle", "test"], capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            
+            return {
+                "passed": result.returncode == 0,
+                "test_file": test_file,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "error_message": result.stderr.strip() if result.returncode != 0 else None,
+                "test_results": {"raw_output": result.stdout + "\n" + result.stderr},
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": f"Kotlin test execution timed out after {self.limits.execution_timeout} seconds",
+                "test_results": {},
+            }
+        except Exception as e:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": str(e),
+                "test_results": {},
+            }
+
+    def _run_elixir_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+        """Run Elixir tests using mix."""
+        try:
+            cmd = ["mix", "test"]
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            
+            return {
+                "passed": result.returncode == 0,
+                "test_file": test_file,
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "error_message": result.stderr.strip() if result.returncode != 0 else None,
+                "test_results": {"raw_output": result.stdout + "\n" + result.stderr},
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": f"Elixir test execution timed out after {self.limits.execution_timeout} seconds",
+                "test_results": {},
+            }
+        except Exception as e:
+            return {
+                "passed": False,
+                "test_file": test_file,
+                "error_message": str(e),
+                "test_results": {},
+            }

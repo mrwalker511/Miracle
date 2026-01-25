@@ -41,9 +41,9 @@ def cli():
     "--problem-type",
     "-p",
     default="general",
-    help="Problem type (web_app, cli_tool, data_pipeline, etc.)",
+    help="Problem type (web_app, mobile_app, desktop_app, api, cli_tool, data_pipeline, ml_model, devops, game, embedded, etc.)",
 )
-@click.option("--language", "-l", default=None, help="Runtime language (python, node)")
+@click.option("--language", "-l", default=None, help="Runtime language (python, node, javascript, typescript, java, csharp, go, rust, ruby, php, swift, kotlin, elixir)")
 @click.option("--max-iterations", "-m", default=15, help="Maximum iterations")
 @click.option("--workspace", "-w", default=None, help="Path to workspace directory (overrides config)")
 @click.option("--enable-review", is_flag=True, help="Enable code review phase")
@@ -100,7 +100,29 @@ def run(
         task = Prompt.ask("\n[cyan]?[/cyan] Enter your coding task")
 
     if not language:
-        language = "node" if str(problem_type).lower().startswith("node") else "python"
+        # Default language based on problem type
+        if str(problem_type).lower() in {"node", "javascript", "typescript"}:
+            language = "node"
+        elif str(problem_type).lower() in {"java", "jvm"}:
+            language = "java"
+        elif str(problem_type).lower() in {"csharp", "dotnet", "c#"}:
+            language = "csharp"
+        elif str(problem_type).lower() in {"go", "golang"}:
+            language = "go"
+        elif str(problem_type).lower() in {"rust"}:
+            language = "rust"
+        elif str(problem_type).lower() in {"ruby", "rails"}:
+            language = "ruby"
+        elif str(problem_type).lower() in {"php"}:
+            language = "php"
+        elif str(problem_type).lower() in {"swift", "ios"}:
+            language = "swift"
+        elif str(problem_type).lower() in {"kotlin"}:
+            language = "kotlin"
+        elif str(problem_type).lower() in {"elixir"}:
+            language = "elixir"
+        else:
+            language = "python"
 
     language = str(language).lower()
 
