@@ -1,4 +1,11 @@
-"""Orchestrator - State machine controller for the autonomous agent."""
+"""Orchestrator - State machine controller for the autonomous agent.
+
+Enhanced with:
+- Context hygiene for token management
+- Execution hooks for safety guardrails
+- Code review and security audit phases
+- Structured failure logging
+"""
 
 import time
 from enum import Enum
@@ -6,17 +13,32 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 from uuid import UUID
 
+from src.agents import AgentFactory
 from src.agents.planner import PlannerAgent
 from src.agents.coder import CoderAgent
 from src.agents.tester import TesterAgent
 from src.agents.reflector import ReflectorAgent
+from src.agents.code_reviewer import CodeReviewerAgent
+from src.agents.security_auditor import SecurityAuditorAgent
 from src.memory.db_manager import DatabaseManager
 from src.memory.vector_store import VectorStore
+from src.memory.failure_analyzer import FailureAnalyzer, StructuredFailureLog
 from src.llm.openai_client import OpenAIClient
 from src.ui.logger import get_logger
 from src.utils.circuit_breaker import CircuitBreaker
 from src.utils.metrics_collector import MetricsCollector
 from src.utils.state_saver import StateSaver
+from src.utils.context_hygiene import (
+    ContextHygieneManager,
+    ContextThresholds,
+    ContextHealthStatus,
+)
+from src.utils.execution_hooks import (
+    HookRegistry,
+    HookContext,
+    HookResult,
+    create_default_hook_registry,
+)
 
 
 class OrchestrationState(Enum):
@@ -24,6 +46,8 @@ class OrchestrationState(Enum):
     INIT = "init"
     PLANNING = "planning"
     CODING = "coding"
+    REVIEWING = "reviewing"      # Code review phase (optional)
+    AUDITING = "auditing"        # Security audit phase (optional)
     TESTING = "testing"
     REFLECTING = "reflecting"
     SUCCESS = "success"
@@ -46,6 +70,8 @@ class Orchestrator:
         max_iterations: int = 15,
         problem_type: str = "general",
         language: str = "python",
+        enable_code_review: bool = False,
+        enable_security_audit: bool = False,
     ):
         """Initialize the orchestrator.
 
@@ -58,6 +84,10 @@ class Orchestrator:
             vector_store: Vector store for memory
             openai_client: OpenAI client
             max_iterations: Maximum iterations allowed
+            problem_type: Type of problem being solved
+            language: Programming language
+            enable_code_review: Enable code review phase
+            enable_security_audit: Enable security audit phase
         """
         self.task_id = task_id
         self.task_description = task_description
@@ -70,6 +100,10 @@ class Orchestrator:
         self.max_iterations = max_iterations
         self.current_iteration = 0
         self.state = OrchestrationState.INIT
+
+        # Optional phases
+        self.enable_code_review = enable_code_review
+        self.enable_security_audit = enable_security_audit
 
         self.logger = get_logger('orchestrator')
 
@@ -84,7 +118,8 @@ class Orchestrator:
             'code_files': {},
             'test_results': {},
             'previous_errors': '',
-            'workspace': None
+            'workspace': None,
+            'current_agent': '',
         }
 
         # Initialize agents
@@ -95,6 +130,16 @@ class Orchestrator:
             .get('workspace_root', './sandbox/workspace')
         )
 
+        # Create agent factory for centralized agent creation
+        self.agent_factory = AgentFactory(
+            openai_client=openai_client,
+            vector_store=vector_store,
+            prompts=prompts,
+            workspace_path=workspace_root,
+            config=config,
+        )
+
+        # Core agents
         self.planner = PlannerAgent('planner', openai_client, vector_store, prompts)
         self.coder = CoderAgent('coder', openai_client, vector_store, prompts, workspace_path=workspace_root)
         self.tester = TesterAgent(
@@ -107,6 +152,16 @@ class Orchestrator:
         )
         self.reflector = ReflectorAgent('reflector', openai_client, vector_store, prompts)
 
+        # Optional review agents (created on demand)
+        self.code_reviewer: Optional[CodeReviewerAgent] = None
+        self.security_auditor: Optional[SecurityAuditorAgent] = None
+
+        if self.enable_code_review:
+            self.code_reviewer = CodeReviewerAgent('code_reviewer', openai_client, vector_store, prompts)
+
+        if self.enable_security_audit:
+            self.security_auditor = SecurityAuditorAgent('security_auditor', openai_client, vector_store, prompts)
+
         # Circuit breaker
         circuit_config = config.get('settings', {}).get('orchestrator', {}).get('circuit_breaker', {})
         self.circuit_breaker = CircuitBreaker(
@@ -114,13 +169,37 @@ class Orchestrator:
             hard_stop=circuit_config.get('hard_stop', 15)
         )
 
+        # Context hygiene manager for token management
+        hygiene_config = config.get('settings', {}).get('context_hygiene', {})
+        self.context_hygiene = ContextHygieneManager(
+            thresholds=ContextThresholds(
+                max_tokens=hygiene_config.get('max_tokens', 128000),
+                warning_threshold=hygiene_config.get('warning_threshold', 0.50),
+                critical_threshold=hygiene_config.get('critical_threshold', 0.75),
+                overflow_threshold=hygiene_config.get('overflow_threshold', 0.90),
+            ),
+            model=config.get('openai', {}).get('model', 'gpt-4'),
+        )
+
+        # Execution hooks for safety
+        hooks_config = config.get('settings', {}).get('execution_hooks', {})
+        if hooks_config.get('enabled', True):
+            self.hook_registry = create_default_hook_registry()
+        else:
+            self.hook_registry = HookRegistry()  # Empty registry
+
+        # Failure analyzer for structured logging
+        self.failure_analyzer = FailureAnalyzer()
+
         self.metrics = MetricsCollector(db=db_manager, openai_client=openai_client)
         self.state_saver = StateSaver()
 
         self.logger.info(
             "orchestrator_initialized",
             task_id=str(task_id),
-            max_iterations=max_iterations
+            max_iterations=max_iterations,
+            code_review_enabled=enable_code_review,
+            security_audit_enabled=enable_security_audit,
         )
 
     def run(self) -> Dict[str, Any]:
@@ -148,6 +227,23 @@ class Orchestrator:
                 state=self.state.value
             )
 
+            # Check and manage context hygiene
+            self._manage_context_hygiene()
+
+            # Execute pre-iteration hooks
+            hook_context = HookContext(
+                operation='start_iteration',
+                agent_type='orchestrator',
+                iteration=self.current_iteration,
+                target='iteration',
+                content=self.context,
+                metadata={'previous_error': self.context.get('previous_errors', '')}
+            )
+            hook_result, _, warnings = self.hook_registry.execute_pre_hooks(hook_context)
+
+            for warning in warnings:
+                self.logger.warning("hook_warning", message=warning)
+
             # Check circuit breaker
             if self.circuit_breaker.should_stop(self.current_iteration):
                 self.logger.warning(
@@ -172,6 +268,24 @@ class Orchestrator:
 
                 elif self.state == OrchestrationState.CODING:
                     self._execute_coding_phase(iteration_id)
+                    # Move to review if enabled, otherwise testing
+                    if self.enable_code_review:
+                        self.state = OrchestrationState.REVIEWING
+                    elif self.enable_security_audit:
+                        self.state = OrchestrationState.AUDITING
+                    else:
+                        self.state = OrchestrationState.TESTING
+
+                elif self.state == OrchestrationState.REVIEWING:
+                    self._execute_review_phase(iteration_id)
+                    # Move to audit if enabled, otherwise testing
+                    if self.enable_security_audit:
+                        self.state = OrchestrationState.AUDITING
+                    else:
+                        self.state = OrchestrationState.TESTING
+
+                elif self.state == OrchestrationState.AUDITING:
+                    self._execute_audit_phase(iteration_id)
                     self.state = OrchestrationState.TESTING
 
                 elif self.state == OrchestrationState.TESTING:
@@ -222,6 +336,29 @@ class Orchestrator:
 
         # Finalize
         return self._finalize()
+
+    def _manage_context_hygiene(self):
+        """Check context health and compact if necessary."""
+        snapshot = self.context_hygiene.analyze(self.context)
+
+        self.logger.debug(
+            "context_health",
+            status=snapshot.status.value,
+            total_tokens=snapshot.total_tokens,
+            recommendation=snapshot.recommendation
+        )
+
+        # Compact if critical or overflow
+        if snapshot.status in [ContextHealthStatus.CRITICAL, ContextHealthStatus.OVERFLOW]:
+            self.logger.info(
+                "context_compaction_triggered",
+                status=snapshot.status.value,
+                tokens_before=snapshot.total_tokens
+            )
+            self.context = self.context_hygiene.compact(self.context)
+
+        # Always apply recency bias for better LLM attention
+        self.context = self.context_hygiene.apply_recency_bias(self.context)
 
     def _execute_planning_phase(self, iteration_id: UUID):
         """Execute planning phase.
@@ -323,11 +460,38 @@ class Orchestrator:
             iteration_id: Current iteration ID
         """
         self.logger.info("reflection_phase_started")
+        self.context['current_agent'] = 'reflector'
 
         self.context['iteration'] = self.current_iteration
         result = self.reflector.execute(self.context)
 
         self.context['previous_errors'] = result.get('root_cause', '')
+
+        # Create structured failure log for better learning
+        structured_log = self.failure_analyzer.extract_structured(
+            test_results=self.context.get('test_results', {}),
+            context=self.context,
+            triggering_prompt=self.context.get('plan', ''),
+        )
+
+        if structured_log:
+            # Generate diagnosis
+            similar_failures = self.vector_store.find_similar_failures(
+                error_signature=result.get('error_signature', ''),
+                limit=3
+            ) if result.get('error_signature') else []
+
+            structured_log.diagnosis = self.failure_analyzer.generate_diagnosis(
+                structured_log,
+                similar_failures
+            )
+            structured_log.root_cause_hypothesis = result.get('root_cause', '')
+
+            self.logger.info(
+                "structured_failure_logged",
+                failure_mode=structured_log.failure_mode.value,
+                error_type=structured_log.error_type
+            )
 
         # Store failure in memory
         if result.get('error_type') and result.get('error_signature'):
@@ -349,6 +513,65 @@ class Orchestrator:
         )
 
         self.logger.info("reflection_phase_completed")
+
+    def _execute_review_phase(self, iteration_id: UUID):
+        """Execute code review phase (optional).
+
+        Args:
+            iteration_id: Current iteration ID
+        """
+        if not self.code_reviewer:
+            return
+
+        self.logger.info("review_phase_started")
+        self.context['current_agent'] = 'code_reviewer'
+
+        result = self.code_reviewer.execute(self.context)
+
+        review = result.get('review')
+        if review and review.has_critical_issues:
+            self.logger.warning(
+                "code_review_found_critical_issues",
+                blocking_count=review.blocking_count
+            )
+            # Add review feedback to context for coder to address
+            self.context['code_review_feedback'] = result.get('review_xml', '')
+
+        self.logger.info(
+            "review_phase_completed",
+            overall_quality=review.overall_quality if review else 'unknown',
+            finding_count=len(review.findings) if review else 0
+        )
+
+    def _execute_audit_phase(self, iteration_id: UUID):
+        """Execute security audit phase (optional).
+
+        Args:
+            iteration_id: Current iteration ID
+        """
+        if not self.security_auditor:
+            return
+
+        self.logger.info("audit_phase_started")
+        self.context['current_agent'] = 'security_auditor'
+
+        result = self.security_auditor.execute(self.context)
+
+        audit = result.get('audit')
+        if audit and audit.has_critical_vulnerabilities:
+            self.logger.warning(
+                "security_audit_found_vulnerabilities",
+                risk_level=audit.risk_level,
+                vulnerability_count=len(audit.findings)
+            )
+            # Add audit feedback to context for coder to address
+            self.context['security_audit_feedback'] = result.get('audit_xml', '')
+
+        self.logger.info(
+            "audit_phase_completed",
+            risk_level=audit.risk_level if audit else 'unknown',
+            vulnerability_count=len(audit.findings) if audit else 0
+        )
 
     def _save_checkpoint(self):
         """Save orchestration state to database and workspace."""
