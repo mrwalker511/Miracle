@@ -1,40 +1,31 @@
 # Autonomous Coding Agent
 
-An autonomous AI agent that writes code iteratively until tests pass, learning from failures using vector similarity.
-
-## 🎯 Mission
-
-Build an autonomous agent that:
-- Accepts coding tasks as goals (not prompts)
-- Writes code iteratively in a loop
-- Generates and runs tests automatically
-- Learns from failures using vector similarity
-- Doesn't stop until code is functional or max iterations reached
+An AI agent that writes code iteratively until tests pass, learning from failures using vector similarity.
 
 **"The difference between a chatbot and an agent is the loop."**
 
-## 🏗️ Architecture
+---
+
+## How It Works
 
 ```
-┌─────────────────────────────────────────┐
-│           ORCHESTRATOR                  │
-│    (State Machine Controller)           │
-│                                         │
-│  INIT → PLANNING → CODING → TESTING    │
-│              ↑            |              │
-│              └─REFLECTING─┘              │
-└────────┬─────┬──────┬─────┬────────────┘
-         │     │      │     │
-    ┌────▼┐ ┌──▼──┐ ┌▼───┐ ┌▼────────┐
-    │PLAN │ │CODE │ │TEST│ │ REFLECT │
-    │ NER │ │  R  │ │ ER │ │   OR    │
-    └─────┘ └─────┘ └────┘ └─────────┘
-         │     │      │     │
-         └─────┴──────┴─────┴───────▶ MEMORY
-                              (PostgreSQL + pgvector)
+PLANNING → CODING → [REVIEW] → [AUDIT] → TESTING
+    ↑                                       |
+    └────────────── REFLECTING ─────────────┘
 ```
 
-## 🚀 Quick Start
+1. **Planning** - Breaks down your task, queries past patterns
+2. **Coding** - Writes code using LLM with file tools
+3. **Review** - (Optional) Checks code quality before testing
+4. **Audit** - (Optional) Scans for security vulnerabilities
+5. **Testing** - Generates and runs tests
+6. **Reflecting** - If tests fail, analyzes errors and loops back
+
+The agent continues until tests pass or max iterations reached.
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
@@ -44,108 +35,125 @@ Build an autonomous agent that:
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   cd autonomous_agent
-   ```
-
-2. **Install Python dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env and set:
-   # - OPENAI_API_KEY=your_key_here
-   # - DB_PASSWORD=secure_password
-   ```
-
-4. **Start PostgreSQL with pgvector**
-   ```bash
-   docker-compose up -d postgres
-   ```
-
-5. **Initialize database**
-   ```bash
-   python scripts/setup_db.py
-   ```
-
-### Running a Task
-
-Python task:
 ```bash
-python -m src.main run --language python --task "Build a REST API for managing todo items with SQLite"
+cd autonomous_agent
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env: set OPENAI_API_KEY and DB_PASSWORD
+
+# Start PostgreSQL with pgvector
+docker-compose up -d postgres
+
+# Initialize database
+python scripts/setup_db.py
 ```
 
-Node.js task:
-```bash
-python -m src.main run --language node --task "Build a Node.js CLI tool that prints the current time"
-```
+### Run a Task
 
-Or interactive mode:
 ```bash
+# Basic
+python -m src.main run --task "Build a REST API for managing todo items"
+
+# With code review
+python -m src.main run --task "..." --enable-review
+
+# With security audit
+python -m src.main run --task "..." --enable-audit
+
+# Both (recommended for production code)
+python -m src.main run --task "..." --enable-review --enable-audit
+
+# Interactive mode
 python -m src.main run
 ```
 
-### View Task History
+---
+
+## CLI Reference
+
+```
+python -m src.main run [OPTIONS]
+
+Options:
+  -t, --task TEXT           Task description
+  -l, --language TEXT       Language: python (default) or node
+  -p, --problem-type TEXT   Hint: web_app, cli_tool, data_pipeline, etc.
+  -m, --max-iterations INT  Max attempts (default: 15)
+  -w, --workspace PATH      Working directory
+  --enable-review           Run code review before testing
+  --enable-audit            Run security audit before testing
+  --skip-reprompter         Use task as-is without structuring
+
+Other commands:
+  python -m src.main history   # View past tasks
+  python -m src.main setup     # Show setup instructions
+```
+
+---
+
+## Working with Your Own Projects
+
+**Important:** The agent modifies files in-place. Always commit your work first.
 
 ```bash
-python -m src.main history
+# Point to your project
+python -m src.main run --workspace "/path/to/your/project" --task "..."
 ```
 
-## 📁 Project Structure
+Or set a default in `config/settings.yaml`:
 
-```
-autonomous_agent/
-├── config/                 # Configuration files (YAML)
-│   ├── settings.yaml      # System settings
-│   ├── database.yaml      # Database config
-│   ├── openai.yaml        # OpenAI API config
-│   ├── system_prompts.yaml # Agent prompts
-│   └── allowed_deps.json  # Dependency allowlist
-├── src/
-│   ├── main.py           # CLI entry point
-│   ├── orchestrator.py   # State machine controller
-│   ├── config_loader.py  # Config management
-│   ├── agents/           # Specialized agents
-│   │   ├── planner.py    # Task decomposition
-│   │   ├── coder.py      # Code generation
-│   │   ├── tester.py     # Test generation & execution
-│   │   └── reflector.py  # Error analysis
-│   ├── llm/              # LLM interface
-│   │   ├── openai_client.py  # Flexible OpenAI client
-│   │   ├── tools.py          # Function calling tools
-│   │   └── token_counter.py  # Usage tracking
-│   ├── memory/           # Database & vector store
-│   │   ├── db_manager.py     # PostgreSQL operations
-│   │   └── vector_store.py   # Similarity search
-│   ├── sandbox/          # Code execution
-│   │   ├── safety_checker.py # AST + Bandit scanning
-│   │   └── docker_executor.py # Sandbox management
-│   ├── ui/               # User interface
-│   │   ├── cli.py        # Rich terminal UI
-│   │   └── logger.py     # Structured logging
-│   └── utils/            # Utilities
-│       ├── circuit_breaker.py # Prevent infinite loops
-│       └── metrics_collector.py # Performance tracking
-├── scripts/
-│   ├── setup_db.py       # Database initialization
-│   └── init_db.sql       # Schema definition
-├── tests/                # Unit tests
-├── sandbox/workspace/    # Generated code workspace
-├── logs/                 # Structured JSON logs
-├── docker-compose.yml    # PostgreSQL + pgvector
-├── requirements.txt      # Python dependencies
-└── README.md
+```yaml
+sandbox:
+  workspace_root: "/path/to/your/project"
 ```
 
-## 🔧 Configuration
+**Tips:**
+- Be specific: "Fix the TypeError in src/utils.py line 45"
+- Reference files: "Use the database wrapper in lib/db.js"
+- Commit before running so you can `git checkout .` to undo
 
-### Model Selection
+---
 
-Edit `config/openai.yaml` to use different models:
+## Configuration
+
+### `config/settings.yaml`
+
+```yaml
+orchestrator:
+  max_iterations: 15
+  circuit_breaker:
+    warning_threshold: 12    # Warn user
+    hard_stop: 15            # Force stop
+
+context_hygiene:
+  max_tokens: 128000         # Model context limit
+  warning_threshold: 0.50    # Start monitoring at 50%
+  critical_threshold: 0.75   # Compress context at 75%
+
+execution_hooks:
+  enabled: true
+  hooks:
+    block_dangerous_commands:
+      enabled: true          # Blocks rm -rf, sudo, etc.
+    protect_sensitive_files:
+      enabled: true          # Guards .env, credentials
+    iteration_guard:
+      enabled: true
+      max_same_error: 3      # Warn if same error repeats
+
+sandbox:
+  engine: "docker"           # or "local"
+  workspace_root: "./sandbox/workspace"
+  resource_limits:
+    memory_mb: 1024
+    execution_timeout: 300
+```
+
+### `config/openai.yaml`
 
 ```yaml
 models:
@@ -156,88 +164,84 @@ models:
   embedding: "text-embedding-3-large"
 ```
 
-Supports any OpenAI model: `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.
+---
 
-### Iteration Limits
+## What the Agent Does
 
-Edit `config/settings.yaml`:
+### Task Structuring
+When you submit a task, the agent analyzes it and may ask clarifying questions to ensure it understands what you want. Skip with `--skip-reprompter` for specific tasks.
 
-```yaml
-orchestrator:
-  max_iterations: 15
-  circuit_breaker:
-    warning_threshold: 12
-    hard_stop: 15
-```
+### Memory Management
+Long tasks fill up context. The agent automatically compresses old data while preserving your goal, current plan, recent errors, and latest code.
 
-### Safety Rules
+### Safety Guardrails
+Commands are validated before execution:
+- Dangerous commands blocked (`rm -rf /`, `sudo`, etc.)
+- Sensitive files protected (`.env`, credentials, SSH keys)
+- Repeated errors detected (warns if stuck in a loop)
 
-Edit `config/settings.yaml`:
+### Code Review (--enable-review)
+Before testing, reviews code for:
+- Logic errors and bugs
+- Style and readability issues
+- Performance problems
+- Maintainability concerns
 
-```yaml
-safety:
-  block_operations:
-    - "eval"
-    - "exec"
-    - "compile"
-```
-
-## 🧠 How It Works
-
-### The Loop
-
-1. **PLANNING**: Agent analyzes the task, queries past patterns, creates subtasks
-2. **CODING**: Agent writes code using available tools (create_file, read_file, etc.)
-3. **TESTING**: Agent generates pytest tests (including hypothesis property tests) and executes them
-4. **REFLECTING**: If tests fail, agent analyzes errors, searches for similar past failures, proposes fixes
-5. **Loop**: Returns to CODING with hypothesis → repeat until tests pass or max iterations
+### Security Audit (--enable-audit)
+Scans for OWASP vulnerabilities:
+- SQL/Command injection
+- Hardcoded secrets
+- Path traversal
+- Weak cryptography
 
 ### Learning from Failures
+Every failure is stored with a vector embedding. When similar errors occur, the agent retrieves past solutions to inform fixes. Successful patterns are saved for future tasks.
 
-- Every failure is stored with a vector embedding
-- When a new error occurs, vector similarity search finds similar past failures
-- Agent uses past solutions to inform current fixes
-- Successful patterns are stored for future tasks
+---
 
-### Safety
+## Project Structure
 
-- **AST scanning**: Blocks dangerous operations (`eval`, `exec`, etc.)
-- **Bandit integration**: Security vulnerability scanning
-- **Sandbox isolation**: Code runs in restricted Docker containers
-- **Dependency approval**: User must approve package installations
-
-## 📊 Database Schema
-
-PostgreSQL with pgvector extension:
-
-- **tasks**: Main task tracking
-- **iterations**: Detailed loop cycle logs
-- **failures**: Error memory with embeddings
-- **patterns**: Successful solution templates
-- **metrics**: Performance data
-- **approvals**: User decision tracking
-
-## 🎯 Example Usage
-
-### REST API Task
-
-```bash
-python -m src.main run -t "Create a Flask REST API for managing books with SQLite" -p web_app
+```
+autonomous_agent/
+├── config/
+│   ├── settings.yaml       # System configuration
+│   ├── database.yaml       # PostgreSQL settings
+│   ├── openai.yaml         # Model configuration
+│   ├── system_prompts.yaml # Agent prompts
+│   └── allowed_deps.json   # Approved dependencies
+├── src/
+│   ├── main.py             # CLI entry point
+│   ├── orchestrator.py     # State machine controller
+│   ├── agents/
+│   │   ├── planner.py      # Task decomposition
+│   │   ├── coder.py        # Code generation
+│   │   ├── tester.py       # Test execution
+│   │   ├── reflector.py    # Error analysis
+│   │   ├── code_reviewer.py    # Quality checks
+│   │   └── security_auditor.py # Vulnerability scanning
+│   ├── llm/                # OpenAI integration
+│   ├── memory/             # PostgreSQL + pgvector
+│   ├── sandbox/            # Code execution
+│   └── utils/              # Helpers
+├── scripts/
+│   ├── setup_db.py         # Database initialization
+│   └── init_db.sql         # Schema
+├── tests/                  # Unit tests
+├── logs/                   # JSON logs
+└── docker-compose.yml      # PostgreSQL + pgvector
 ```
 
-### Data Processing Task
+---
 
-```bash
-python -m src.main run -t "Build a script to parse CSV files and generate statistics" -p data_pipeline
-```
+## Troubleshooting
 
-### CLI Tool Task
-
-```bash
-python -m src.main run -t "Create a CLI tool for managing TODO items stored in JSON" -p cli_tool
-```
-
-## 🔍 Monitoring
+| Message | Meaning | Action |
+|---------|---------|--------|
+| "Context compaction triggered" | Memory was getting full | Normal - old data compressed |
+| "Command blocked by safety hook" | Dangerous command stopped | Agent will try another approach |
+| "Code review found critical issues" | Bugs detected | Agent will fix in next iteration |
+| "Circuit breaker triggered" | Max iterations reached | Task paused - may need manual help |
+| "Same error repeated X times" | Stuck in a loop | Consider breaking task into smaller pieces |
 
 ### Logs
 
@@ -245,7 +249,7 @@ Structured JSON logs in `logs/agent.log`:
 
 ```json
 {
-  "timestamp": "2025-01-13T10:30:45.123Z",
+  "timestamp": "2025-01-25T10:30:45Z",
   "level": "INFO",
   "task_id": "abc-123",
   "iteration": 3,
@@ -255,53 +259,55 @@ Structured JSON logs in `logs/agent.log`:
 }
 ```
 
-### Metrics
+---
 
-Track performance in database:
-- Iteration duration
-- Token usage per phase
-- Test pass rate
-- Error type frequency
-- Pattern match effectiveness
+## Examples
 
-## 🚧 Current Limitations
+### REST API
+```bash
+python -m src.main run \
+  --task "Create a Flask REST API for managing books with SQLite" \
+  --language python \
+  --enable-review
+```
 
-- **Languages**: Python and Node.js (JavaScript)
-- **Testing**: pytest (Python) and node:test (Node.js)
-- **Dependencies**: Manual installation required (no auto-install)
-- **Sandbox**: Basic Docker isolation (can be enhanced)
+### CLI Tool
+```bash
+python -m src.main run \
+  --task "Build a CLI tool for converting CSV to JSON" \
+  --language python
+```
 
-## 🔮 Future Enhancements
+### Node.js
+```bash
+python -m src.main run \
+  --task "Create an Express API with user authentication" \
+  --language node \
+  --enable-audit
+```
 
-- [ ] More languages (TypeScript, Go, etc.)
-- [ ] Parallel execution of subtasks
-- [ ] Cost optimization (model selection based on task complexity)
-- [ ] Web UI dashboard
-- [ ] Collaborative learning across agent instances
-- [ ] Fine-tuning based on success metrics
+### Bug Fix
+```bash
+python -m src.main run \
+  --workspace "/path/to/project" \
+  --task "Fix the null pointer exception in handlers.py line 142" \
+  --skip-reprompter
+```
 
-## 📝 License
+---
 
-MIT License - See LICENSE file for details
+## Limitations
 
-## 🤝 Contributing
+- **Languages:** Python and Node.js
+- **Testing:** pytest (Python), node:test (Node.js)
+- **Dependencies:** Manual approval required
+- **Sandbox:** Docker recommended for isolation
 
-Contributions welcome! Please see CONTRIBUTING.md for guidelines.
+---
 
-## 📧 Support
+## License
 
-For issues and questions:
-- GitHub Issues: [github.com/yourrepo/issues](https://github.com/yourrepo/issues)
-- Documentation: See `docs/` folder
-
-## 🙏 Acknowledgments
-
-Built with:
-- OpenAI API (GPT-4, text-embedding-3-large)
-- PostgreSQL + pgvector
-- Python 3.11+
-- Rich (terminal UI)
-- pytest + hypothesis (testing)
+MIT License - See LICENSE file.
 
 ---
 
