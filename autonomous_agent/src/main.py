@@ -25,7 +25,8 @@ from src.memory.db_manager import DatabaseManager
 from src.memory.vector_store import VectorStore
 from src.orchestrator import Orchestrator
 from src.ui.logger import get_logger, setup_logging
-from src.utils.reprompter import Reprompter, StructuredTask, ClarificationPriority
+from src.preprocessing import Reprompter, StructuredTask, ClarificationQuestion
+from src.preprocessing.reprompter import ClarificationPriority
 
 console = Console()
 
