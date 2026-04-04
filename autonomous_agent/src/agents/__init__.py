@@ -1,6 +1,9 @@
-"""Agent module - exports and factory for all agents.
+"""Agent registry and factory.
 
-Provides a unified interface for creating and managing agents.
+Core agents (always active):    planner, coder, tester, reflector
+Optional agents (flag-enabled): code_reviewer, security_auditor (in optional/)
+
+All agents share the same BaseAgent interface: execute(context) -> dict.
 """
 
 from __future__ import annotations
@@ -12,8 +15,8 @@ from src.agents.planner import PlannerAgent
 from src.agents.coder import CoderAgent
 from src.agents.tester import TesterAgent
 from src.agents.reflector import ReflectorAgent
-from src.agents.code_reviewer import CodeReviewerAgent
-from src.agents.security_auditor import SecurityAuditorAgent
+from src.agents.optional.code_reviewer import CodeReviewerAgent
+from src.agents.optional.security_auditor import SecurityAuditorAgent
 
 # Export all agents
 __all__ = [

@@ -1,10 +1,16 @@
 """Orchestrator - State machine controller for the autonomous agent.
 
-Enhanced with:
-- Context hygiene for token management
-- Execution hooks for safety guardrails
-- Code review and security audit phases
-- Structured failure logging
+Core loop:
+    PLANNING → CODING → TESTING → REFLECTING → CODING (repeat)
+                  ↓
+         [optional phases run here: code_review, security_audit]
+
+Exits with SUCCESS when tests pass, or FAILED after max_iterations.
+
+Supporting features (non-loop):
+- Context hygiene: token budget management to prevent context overflow
+- Execution hooks: safety guardrails run before each iteration
+- Structured failure logging: stores errors in DB + vector store for learning
 """
 
 import time
@@ -18,8 +24,7 @@ from src.agents.planner import PlannerAgent
 from src.agents.coder import CoderAgent
 from src.agents.tester import TesterAgent
 from src.agents.reflector import ReflectorAgent
-from src.agents.code_reviewer import CodeReviewerAgent
-from src.agents.security_auditor import SecurityAuditorAgent
+from src.agents.optional import CodeReviewerAgent, SecurityAuditorAgent
 from src.memory.db_manager import DatabaseManager
 from src.memory.vector_store import VectorStore
 from src.memory.failure_analyzer import FailureAnalyzer, StructuredFailureLog
@@ -42,12 +47,13 @@ from src.utils.execution_hooks import (
 
 
 class OrchestrationState(Enum):
-    """States in the orchestration state machine."""
+    """States in the orchestration state machine.
+
+    Core flow: PLANNING → CODING → TESTING → REFLECTING → CODING (repeat)
+    """
     INIT = "init"
     PLANNING = "planning"
     CODING = "coding"
-    REVIEWING = "reviewing"      # Code review phase (optional)
-    AUDITING = "auditing"        # Security audit phase (optional)
     TESTING = "testing"
     REFLECTING = "reflecting"
     SUCCESS = "success"
@@ -101,9 +107,8 @@ class Orchestrator:
         self.current_iteration = 0
         self.state = OrchestrationState.INIT
 
-        # Optional phases
-        self.enable_code_review = enable_code_review
-        self.enable_security_audit = enable_security_audit
+        # Optional phases — populated below, called after CODING before TESTING
+        self.optional_phases = []
 
         self.logger = get_logger('orchestrator')
 
@@ -152,15 +157,17 @@ class Orchestrator:
         )
         self.reflector = ReflectorAgent('reflector', openai_client, vector_store, prompts)
 
-        # Optional review agents (created on demand)
+        # Optional review agents — register their phase methods if enabled
         self.code_reviewer: Optional[CodeReviewerAgent] = None
         self.security_auditor: Optional[SecurityAuditorAgent] = None
 
-        if self.enable_code_review:
+        if enable_code_review:
             self.code_reviewer = CodeReviewerAgent('code_reviewer', openai_client, vector_store, prompts)
+            self.optional_phases.append(self._execute_review_phase)
 
-        if self.enable_security_audit:
+        if enable_security_audit:
             self.security_auditor = SecurityAuditorAgent('security_auditor', openai_client, vector_store, prompts)
+            self.optional_phases.append(self._execute_audit_phase)
 
         # Circuit breaker
         circuit_config = config.get('settings', {}).get('orchestrator', {}).get('circuit_breaker', {})
@@ -268,24 +275,7 @@ class Orchestrator:
 
                 elif self.state == OrchestrationState.CODING:
                     self._execute_coding_phase(iteration_id)
-                    # Move to review if enabled, otherwise testing
-                    if self.enable_code_review:
-                        self.state = OrchestrationState.REVIEWING
-                    elif self.enable_security_audit:
-                        self.state = OrchestrationState.AUDITING
-                    else:
-                        self.state = OrchestrationState.TESTING
-
-                elif self.state == OrchestrationState.REVIEWING:
-                    self._execute_review_phase(iteration_id)
-                    # Move to audit if enabled, otherwise testing
-                    if self.enable_security_audit:
-                        self.state = OrchestrationState.AUDITING
-                    else:
-                        self.state = OrchestrationState.TESTING
-
-                elif self.state == OrchestrationState.AUDITING:
-                    self._execute_audit_phase(iteration_id)
+                    self._run_optional_phases(iteration_id)
                     self.state = OrchestrationState.TESTING
 
                 elif self.state == OrchestrationState.TESTING:
@@ -336,6 +326,11 @@ class Orchestrator:
 
         # Finalize
         return self._finalize()
+
+    def _run_optional_phases(self, iteration_id: UUID) -> None:
+        """Run any optional phases registered at init (code_review, security_audit)."""
+        for phase_fn in self.optional_phases:
+            phase_fn(iteration_id)
 
     def _manage_context_hygiene(self):
         """Check context health and compact if necessary."""
