@@ -209,7 +209,7 @@ class Orchestrator:
             security_audit_enabled=enable_security_audit,
         )
 
-    def run(self) -> Dict[str, Any]:
+    async def run(self) -> Dict[str, Any]:
         """Execute the main orchestration loop.
 
         Returns:
@@ -219,7 +219,7 @@ class Orchestrator:
 
         # Set state to planning
         self.state = OrchestrationState.PLANNING
-        self.db.update_task_status(self.task_id, 'running')
+        await self.db.update_task_status(self.task_id, 'running')
 
         while self.current_iteration < self.max_iterations:
             self.current_iteration += 1
@@ -261,7 +261,7 @@ class Orchestrator:
                 break
 
             # Create iteration record
-            iteration_id = self.db.create_iteration(
+            iteration_id = await self.db.create_iteration(
                 self.task_id,
                 self.current_iteration,
                 self.state.value
@@ -270,16 +270,16 @@ class Orchestrator:
             # Execute current state
             try:
                 if self.state == OrchestrationState.PLANNING:
-                    self._execute_planning_phase(iteration_id)
+                    await self._execute_planning_phase(iteration_id)
                     self.state = OrchestrationState.CODING
 
                 elif self.state == OrchestrationState.CODING:
-                    self._execute_coding_phase(iteration_id)
-                    self._run_optional_phases(iteration_id)
+                    await self._execute_coding_phase(iteration_id)
+                    await self._run_optional_phases(iteration_id)
                     self.state = OrchestrationState.TESTING
 
                 elif self.state == OrchestrationState.TESTING:
-                    success = self._execute_testing_phase(iteration_id)
+                    success = await self._execute_testing_phase(iteration_id)
                     if success:
                         self.state = OrchestrationState.SUCCESS
                         break
@@ -287,7 +287,7 @@ class Orchestrator:
                         self.state = OrchestrationState.REFLECTING
 
                 elif self.state == OrchestrationState.REFLECTING:
-                    self._execute_reflection_phase(iteration_id)
+                    await self._execute_reflection_phase(iteration_id)
                     self.state = OrchestrationState.CODING  # Loop back
 
             except Exception as e:
@@ -310,27 +310,27 @@ class Orchestrator:
             )
 
             # Store metrics
-            self.db.store_metric(
+            await self.db.store_metric(
                 self.task_id,
                 'iteration_duration',
                 iteration_duration
             )
-            self.metrics.record_iteration_tokens(
+            await self.metrics.record_iteration_tokens(
                 task_id=self.task_id,
                 iteration=self.current_iteration,
             )
 
             # Checkpoint every 5 iterations
             if self.current_iteration % 5 == 0:
-                self._save_checkpoint()
+                await self._save_checkpoint()
 
         # Finalize
-        return self._finalize()
+        return await self._finalize()
 
-    def _run_optional_phases(self, iteration_id: UUID) -> None:
+    async def _run_optional_phases(self, iteration_id: UUID) -> None:
         """Run any optional phases registered at init (code_review, security_audit)."""
         for phase_fn in self.optional_phases:
-            phase_fn(iteration_id)
+            await phase_fn(iteration_id)
 
     def _manage_context_hygiene(self):
         """Check context health and compact if necessary."""
@@ -355,7 +355,7 @@ class Orchestrator:
         # Always apply recency bias for better LLM attention
         self.context = self.context_hygiene.apply_recency_bias(self.context)
 
-    def _execute_planning_phase(self, iteration_id: UUID):
+    async def _execute_planning_phase(self, iteration_id: UUID):
         """Execute planning phase.
 
         Args:
@@ -364,21 +364,21 @@ class Orchestrator:
         self.logger.info("planning_phase_started")
 
         self.context['iteration'] = self.current_iteration
-        result = self.planner.execute(self.context)
+        result = await self.planner.execute(self.context)
 
         self.context['plan'] = result['plan']
         self.context['subtasks'] = result.get('subtasks', [])
         self.context['dependencies'] = result.get('dependencies', [])
 
         # Update iteration with plan
-        self.db.update_iteration(
+        await self.db.update_iteration(
             iteration_id,
             reflection=result['plan']
         )
 
         self.logger.info("planning_phase_completed")
 
-    def _execute_coding_phase(self, iteration_id: UUID):
+    async def _execute_coding_phase(self, iteration_id: UUID):
         """Execute coding phase.
 
         Args:
@@ -386,7 +386,7 @@ class Orchestrator:
         """
         self.logger.info("coding_phase_started")
 
-        result = self.coder.execute(self.context)
+        result = await self.coder.execute(self.context)
 
         self.context['code_files'] = result['code_files']
         self.context['workspace'] = result.get('workspace')
@@ -398,7 +398,7 @@ class Orchestrator:
         ])
 
         # Update iteration with code
-        self.db.update_iteration(
+        await self.db.update_iteration(
             iteration_id,
             code_snapshot=combined_code
         )
@@ -408,7 +408,7 @@ class Orchestrator:
             file_count=len(result['code_files'])
         )
 
-    def _execute_testing_phase(self, iteration_id: UUID) -> bool:
+    async def _execute_testing_phase(self, iteration_id: UUID) -> bool:
         """Execute testing phase.
 
         Args:
@@ -419,12 +419,12 @@ class Orchestrator:
         """
         self.logger.info("testing_phase_started")
 
-        result = self.tester.execute(self.context)
+        result = await self.tester.execute(self.context)
 
         self.context['test_results'] = result
 
         # Update iteration with test results
-        self.db.update_iteration(
+        await self.db.update_iteration(
             iteration_id,
             test_code=result.get('test_file', ''),
             test_results=result.get('test_results', {}),
@@ -435,7 +435,7 @@ class Orchestrator:
 
         passed = result.get('passed', False)
 
-        self.metrics.record_test_pass_rate(
+        await self.metrics.record_test_pass_rate(
             task_id=self.task_id,
             passed=passed,
             iteration=self.current_iteration,
@@ -448,7 +448,7 @@ class Orchestrator:
 
         return passed
 
-    def _execute_reflection_phase(self, iteration_id: UUID):
+    async def _execute_reflection_phase(self, iteration_id: UUID):
         """Execute reflection phase.
 
         Args:
@@ -458,7 +458,7 @@ class Orchestrator:
         self.context['current_agent'] = 'reflector'
 
         self.context['iteration'] = self.current_iteration
-        result = self.reflector.execute(self.context)
+        result = await self.reflector.execute(self.context)
 
         self.context['previous_errors'] = result.get('root_cause', '')
 
@@ -471,7 +471,7 @@ class Orchestrator:
 
         if structured_log:
             # Generate diagnosis
-            similar_failures = self.vector_store.find_similar_failures(
+            similar_failures = await self.vector_store.find_similar_failures(
                 error_signature=result.get('error_signature', ''),
                 limit=3
             ) if result.get('error_signature') else []
@@ -490,7 +490,7 @@ class Orchestrator:
 
         # Store failure in memory
         if result.get('error_type') and result.get('error_signature'):
-            self.vector_store.store_failure_with_embedding(
+            await self.vector_store.store_failure_with_embedding(
                 task_id=self.task_id,
                 iteration_id=iteration_id,
                 error_signature=result['error_signature'],
@@ -501,7 +501,7 @@ class Orchestrator:
             )
 
         # Update iteration with reflection
-        self.db.update_iteration(
+        await self.db.update_iteration(
             iteration_id,
             reflection=result.get('reflection', ''),
             hypothesis=result.get('hypothesis', '')
@@ -509,7 +509,7 @@ class Orchestrator:
 
         self.logger.info("reflection_phase_completed")
 
-    def _execute_review_phase(self, iteration_id: UUID):
+    async def _execute_review_phase(self, iteration_id: UUID):
         """Execute code review phase (optional).
 
         Args:
@@ -521,7 +521,7 @@ class Orchestrator:
         self.logger.info("review_phase_started")
         self.context['current_agent'] = 'code_reviewer'
 
-        result = self.code_reviewer.execute(self.context)
+        result = await self.code_reviewer.execute(self.context)
 
         review = result.get('review')
         if review and review.has_critical_issues:
@@ -538,7 +538,7 @@ class Orchestrator:
             finding_count=len(review.findings) if review else 0
         )
 
-    def _execute_audit_phase(self, iteration_id: UUID):
+    async def _execute_audit_phase(self, iteration_id: UUID):
         """Execute security audit phase (optional).
 
         Args:
@@ -550,7 +550,7 @@ class Orchestrator:
         self.logger.info("audit_phase_started")
         self.context['current_agent'] = 'security_auditor'
 
-        result = self.security_auditor.execute(self.context)
+        result = await self.security_auditor.execute(self.context)
 
         audit = result.get('audit')
         if audit and audit.has_critical_vulnerabilities:
@@ -568,11 +568,11 @@ class Orchestrator:
             vulnerability_count=len(audit.findings) if audit else 0
         )
 
-    def _save_checkpoint(self):
+    async def _save_checkpoint(self):
         """Save orchestration state to database and workspace."""
         self.logger.info("checkpoint_saved", iteration=self.current_iteration)
 
-        self.db.update_task_status(
+        await self.db.update_task_status(
             self.task_id,
             'running',
             total_iterations=self.current_iteration
@@ -590,7 +590,7 @@ class Orchestrator:
             except Exception as e:
                 self.logger.warning("checkpoint_write_failed", error=str(e))
 
-    def _finalize(self) -> Dict[str, Any]:
+    async def _finalize(self) -> Dict[str, Any]:
         """Finalize the orchestration and return results.
 
         Returns:
@@ -603,7 +603,7 @@ class Orchestrator:
                 for filename, content in self.context.get('code_files', {}).items()
             ])
 
-            self.vector_store.store_pattern_with_embedding(
+            await self.vector_store.store_pattern_with_embedding(
                 problem_type=self.context.get('problem_type', 'unknown'),
                 description=self.task_description,
                 code_template=combined_code,
@@ -612,7 +612,7 @@ class Orchestrator:
             )
 
             # Update task
-            self.db.update_task_status(
+            await self.db.update_task_status(
                 self.task_id,
                 'success',
                 total_iterations=self.current_iteration,
@@ -633,7 +633,7 @@ class Orchestrator:
             }
 
         elif self.state == OrchestrationState.PAUSED:
-            self.db.update_task_status(
+            await self.db.update_task_status(
                 self.task_id,
                 'paused',
                 total_iterations=self.current_iteration
@@ -650,7 +650,7 @@ class Orchestrator:
 
         else:
             # Failed - max iterations reached
-            self.db.update_task_status(
+            await self.db.update_task_status(
                 self.task_id,
                 'failed',
                 total_iterations=self.current_iteration

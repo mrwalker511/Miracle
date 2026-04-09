@@ -30,7 +30,7 @@ class OpenAIClient:
         if not self.api_key:
             raise ValueError("OPENAI_API_KEY not found in environment or config")
 
-        self.client = openai.OpenAI(
+        self.client = openai.AsyncOpenAI(
             api_key=self.api_key,
             organization=self.organization
         )
@@ -64,7 +64,7 @@ class OpenAIClient:
             openai.APIConnectionError
         ))
     )
-    def chat_completion(
+    async def chat_completion(
         self,
         agent_type: str,
         messages: List[Dict[str, str]],
@@ -109,7 +109,7 @@ class OpenAIClient:
         )
 
         try:
-            response = self.client.chat.completions.create(**params)
+            response = await self.client.chat.completions.create(**params)
             self._log_token_usage(agent_type, response.usage)
             return response
 
@@ -125,10 +125,10 @@ class OpenAIClient:
         except Exception as e:
             # Try fallback models if configured
             if self.fallback_enabled and self.fallback_sequence:
-                return self._try_fallback_models(params, agent_type, messages, tools)
+                return await self._try_fallback_models(params, agent_type, messages, tools)
             raise
 
-    def _try_fallback_models(
+    async def _try_fallback_models(
         self,
         params: Dict[str, Any],
         agent_type: str,
@@ -159,7 +159,7 @@ class OpenAIClient:
                 )
 
                 params['model'] = fallback_model
-                response = self.client.chat.completions.create(**params)
+                response = await self.client.chat.completions.create(**params)
                 self._log_token_usage(agent_type, response.usage)
                 return response
 
@@ -182,7 +182,7 @@ class OpenAIClient:
             openai.APIConnectionError
         ))
     )
-    def create_embedding(self, text: str) -> List[float]:
+    async def create_embedding(self, text: str) -> List[float]:
         """Generate an embedding for text.
 
         Args:
@@ -199,7 +199,7 @@ class OpenAIClient:
             text_length=len(text)
         )
 
-        response = self.client.embeddings.create(
+        response = await self.client.embeddings.create(
             model=model,
             input=text
         )

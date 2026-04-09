@@ -19,11 +19,11 @@ class MetricsCollector:
     def start_iteration(self):
         self._token_baseline = self.openai.get_total_tokens_used()
 
-    def record_iteration_tokens(self, *, task_id: UUID, iteration: int):
+    async def record_iteration_tokens(self, *, task_id: UUID, iteration: int):
         tokens_now = self.openai.get_total_tokens_used()
         tokens_used = max(tokens_now - self._token_baseline, 0)
 
-        self.db.store_metric(
+        await self.db.store_metric(
             task_id,
             "token_usage",
             float(tokens_used),
@@ -32,8 +32,8 @@ class MetricsCollector:
 
         self.logger.info("iteration_token_usage_recorded", iteration=iteration, tokens_used=tokens_used)
 
-    def record_test_pass_rate(self, *, task_id: UUID, passed: bool, iteration: int):
-        self.db.store_metric(
+    async def record_test_pass_rate(self, *, task_id: UUID, passed: bool, iteration: int):
+        await self.db.store_metric(
             task_id,
             "test_pass_rate",
             1.0 if passed else 0.0,

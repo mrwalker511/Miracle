@@ -8,7 +8,7 @@ from src.agents.base_agent import BaseAgent
 class PlannerAgent(BaseAgent):
     """Agent responsible for breaking down tasks into actionable subtasks."""
 
-    def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Create a detailed implementation plan.
 
         Args:
@@ -36,7 +36,7 @@ class PlannerAgent(BaseAgent):
         self.logger.info("planning_started", task=task_description)
 
         # Query similar patterns from memory
-        pattern_matches = self.vector_store.find_similar_patterns(
+        pattern_matches = await self.vector_store.find_similar_patterns(
             task_description=task_description,
             problem_type=problem_type_filter,
             limit=3
@@ -61,7 +61,7 @@ class PlannerAgent(BaseAgent):
 
         # Call LLM
         messages = self.build_messages(user_message)
-        response = self.call_llm(messages)
+        response = await self.call_llm(messages)
 
         # Extract and parse plan
         plan_text = self.extract_text_response(response)

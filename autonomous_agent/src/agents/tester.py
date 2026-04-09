@@ -38,7 +38,7 @@ class TesterAgent(BaseAgent):
 
         raise ValueError(f"Path escapes workspace: {path}")
 
-    def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         code_files = context.get("code_files", {})
         task_id = str(context.get("task_id", ""))
         workspace = Path(context.get("workspace", self.workspace_path / task_id))
@@ -46,7 +46,7 @@ class TesterAgent(BaseAgent):
 
         self.logger.info("testing_started", workspace=str(workspace), language=language)
 
-        test_generation_result = self._generate_tests(code_files, workspace, language)
+        test_generation_result = await self._generate_tests(code_files, workspace, language)
         if not test_generation_result.get("success"):
             return {
                 "passed": False,
@@ -65,7 +65,7 @@ class TesterAgent(BaseAgent):
 
         return test_results
 
-    def _generate_tests(
+    async def _generate_tests(
         self,
         code_files: Dict[str, str],
         workspace: Path,
@@ -87,7 +87,7 @@ class TesterAgent(BaseAgent):
 
         messages = self.build_messages(user_message)
         tools = get_testing_tools()
-        response = self.call_llm(messages, tools=tools)
+        response = await self.call_llm(messages, tools=tools)
 
         tool_calls = self.extract_tool_calls(response)
         test_file: Optional[str] = None

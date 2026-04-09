@@ -205,7 +205,7 @@ Be thorough. Security vulnerabilities can be subtle. When in doubt, flag it."""
         super().__init__(agent_type, openai_client, vector_store, prompts)
         self.system_prompt = self.AUDIT_SYSTEM_PROMPT
 
-    def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute security audit on the provided code.
 
         Args:
@@ -248,7 +248,7 @@ Language: {context.get('language', 'python')}
 """)
 
         # Call LLM
-        response = self.call_llm(messages, temperature=0.2)  # Lower temp for security
+        response = await self.call_llm(messages, temperature=0.2)  # Lower temp for security
         response_text = self.extract_text_response(response)
 
         # Parse the XML response

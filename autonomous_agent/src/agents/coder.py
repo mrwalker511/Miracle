@@ -23,7 +23,7 @@ class CoderAgent(BaseAgent):
         self.workspace_path = Path(workspace_path)
         self.scaffolder = ProjectScaffolder()
 
-    def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Generate code based on plan.
 
         Args:
@@ -76,7 +76,7 @@ class CoderAgent(BaseAgent):
 
         # Call LLM with tools
         messages = self.build_messages(user_message)
-        response = self.call_llm(messages, tools=tools)
+        response = await self.call_llm(messages, tools=tools)
 
         # Extract tool calls and execute them
         tool_calls = self.extract_tool_calls(response)

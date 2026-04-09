@@ -8,6 +8,7 @@ Enhanced with:
 
 from __future__ import annotations
 
+import asyncio
 import sys
 from pathlib import Path
 
@@ -61,7 +62,19 @@ def run(
     skip_reprompter: bool,
 ):
     """Start a new autonomous coding task."""
+    asyncio.run(_run_async(task, problem_type, language, max_iterations, workspace, enable_review, enable_audit, skip_reprompter))
 
+
+async def _run_async(
+    task: str,
+    problem_type: str,
+    language: str | None,
+    max_iterations: int,
+    workspace: str | None,
+    enable_review: bool,
+    enable_audit: bool,
+    skip_reprompter: bool,
+):
     console.print(
         Panel.fit(
             "[bold cyan]AUTONOMOUS CODING AGENT v0.1.0[/bold cyan]\n"
@@ -203,7 +216,7 @@ def run(
         console.print("[cyan]Security audit: enabled[/cyan]")
 
     # Create task in database
-    task_id = db_manager.create_task(
+    task_id = await db_manager.create_task(
         description=task,
         goal=goal,
         metadata={
@@ -240,7 +253,7 @@ def run(
         console.print(f"\n[yellow]Starting autonomous execution (max {max_iterations} iterations)...[/yellow]")
         console.print(f"[dim]Phases: {' -> '.join(phases)}[/dim]\n")
 
-        result = orchestrator.run()
+        result = await orchestrator.run()
 
         if result.get("success"):
             console.print(
@@ -268,7 +281,7 @@ def run(
         logger.error("execution_failed", error=str(e), exc_info=True)
 
     finally:
-        db_manager.close()
+        await db_manager.close()
 
     logger.info("application_completed")
 
@@ -276,7 +289,9 @@ def run(
 @cli.command()
 def history():
     """View task history."""
+    asyncio.run(_history_async())
 
+async def _history_async():
     try:
         config_loader = get_config_loader()
         configs = config_loader.load_all_configs()
@@ -289,7 +304,7 @@ def history():
             LIMIT 10
         """
 
-        tasks = db_manager.execute_query(query)
+        tasks = await db_manager.execute_query(query)
         if not tasks:
             console.print("[yellow]No tasks found[/yellow]")
             return
@@ -316,7 +331,7 @@ def history():
 
     finally:
         try:
-            db_manager.close()
+            await db_manager.close()
         except Exception:
             pass
 

@@ -126,7 +126,7 @@ Be thorough but constructive. Focus on actionable feedback."""
         super().__init__(agent_type, openai_client, vector_store, prompts)
         self.system_prompt = self.REVIEW_SYSTEM_PROMPT
 
-    def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute code review on the provided code.
 
         Args:
@@ -160,7 +160,7 @@ Language: {context.get('language', 'python')}
 """)
 
         # Call LLM
-        response = self.call_llm(messages, temperature=0.3)
+        response = await self.call_llm(messages, temperature=0.3)
         response_text = self.extract_text_response(response)
 
         # Parse the XML response

@@ -88,12 +88,14 @@ TASK COMPLETED SUCCESSFULLY ✅
 ### Prerequisites
 
 **Required:**
+
 - Python 3.11+
 - PostgreSQL 14+ (with pgvector extension)
 - OpenAI API key
 - 4GB+ RAM recommended
 
 **Optional:**
+
 - Docker & Docker Compose (for sandboxed execution)
 
 ### Step-by-Step Installation
@@ -262,16 +264,19 @@ The quality of your task description directly impacts the agent's success. Follo
 #### ✅ Good Task Examples
 
 **Specific and Actionable:**
+
 ```
 "Create a function called 'calculate_tax' that takes income as input and returns tax amount using a progressive tax system with brackets: 10% on first $50k, 20% on next $100k, 30% above $150k"
 ```
 
 **Contextual and Goal-Oriented:**
+
 ```
 "Build a REST API endpoint '/api/users/{id}' that returns user profile data from PostgreSQL database, including error handling for invalid user IDs and proper HTTP status codes"
 ```
 
 **Constraints and Requirements:**
+
 ```
 "Create a web scraper for 'example.com/news' that extracts article titles and URLs, saves them to CSV, handles rate limiting (1 request per second), and includes retry logic for failed requests"
 ```
@@ -279,6 +284,7 @@ The quality of your task description directly impacts the agent's success. Follo
 #### ❌ Poor Task Examples
 
 **Too Vague:**
+
 ```
 "Make something with Python"
 "Build an app"
@@ -286,11 +292,13 @@ The quality of your task description directly impacts the agent's success. Follo
 ```
 
 **Overly Complex:**
+
 ```
 "Create a complete e-commerce platform with payment processing, user management, inventory system, admin dashboard, and mobile app"
 ```
 
 **Missing Context:**
+
 ```
 "Create a function that processes data"
 ```
@@ -312,6 +320,7 @@ The quality of your task description directly impacts the agent's success. Follo
 ```
 
 **Examples:**
+
 - `Create a function 'validate_email' in utils.py that checks email format using regex`
 - `Add user authentication middleware to Express app.js that checks JWT tokens`
 - `Fix the database connection error in models.py that occurs when DB_HOST is unset`
@@ -370,6 +379,7 @@ sandbox:
 #### Method 3: Docker File Sharing (Windows/Mac)
 
 If using Docker sandbox:
+
 1. Open Docker Desktop
 2. Settings → Resources → File Sharing
 3. Add your project directory path
@@ -405,11 +415,13 @@ python -m src.main run --task "Add error handling middleware to the Express app 
 #### 4. Language-Specific Considerations
 
 **Python Projects:**
+
 ```bash
 python -m src.main run --task "Add type hints to the User class in models/user.py using dataclasses"
 ```
 
 **Node.js Projects:**
+
 ```bash
 python -m src.main run --task "Convert the CommonJS require statements to ES6 imports in utils/helpers.js"
 ```
@@ -468,6 +480,7 @@ python -m src.main run --task "Build a user management system" --enable-review
 ```
 
 The review phase includes:
+
 - Code quality analysis
 - Style and convention checks
 - Architecture review
@@ -483,6 +496,7 @@ python -m src.main run --task "Create a file upload API" --enable-audit
 ```
 
 Security checks include:
+
 - SQL injection vulnerabilities
 - XSS prevention
 - Input validation
@@ -567,6 +581,7 @@ your_project/
 #### Provide README Files
 
 Include clear README.md files explaining:
+
 - Project structure
 - Dependencies
 - Setup instructions

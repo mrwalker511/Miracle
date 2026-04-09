@@ -9,7 +9,7 @@ from src.agents.base_agent import BaseAgent
 class ReflectorAgent(BaseAgent):
     """Agent responsible for analyzing failures and generating fixes."""
 
-    def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze test failure and propose a fix.
 
         Args:
@@ -46,7 +46,7 @@ class ReflectorAgent(BaseAgent):
             }
 
         # Search for similar failures
-        similar_failures = self.vector_store.find_similar_failures(
+        similar_failures = await self.vector_store.find_similar_failures(
             error_message=error_info['error_signature'],
             limit=3
         )
@@ -71,7 +71,7 @@ class ReflectorAgent(BaseAgent):
 
         # Call LLM
         messages = self.build_messages(user_message)
-        response = self.call_llm(messages)
+        response = await self.call_llm(messages)
 
         # Parse reflection
         reflection_text = self.extract_text_response(response)

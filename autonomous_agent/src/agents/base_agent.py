@@ -37,7 +37,7 @@ class BaseAgent(ABC):
         self.user_template = self.prompts.get('user_template', '{input}')
 
     @abstractmethod
-    def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the agent's primary function.
 
         Args:
@@ -71,7 +71,7 @@ class BaseAgent(ABC):
 
         return messages
 
-    def call_llm(
+    async def call_llm(
         self,
         messages: List[Dict[str, str]],
         tools: Optional[List[Dict[str, Any]]] = None,
@@ -88,7 +88,7 @@ class BaseAgent(ABC):
             OpenAI completion response
         """
         try:
-            response = self.openai.chat_completion(
+            response = await self.openai.chat_completion(
                 agent_type=self.agent_type,
                 messages=messages,
                 tools=tools,
