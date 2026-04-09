@@ -22,7 +22,7 @@ class VectorStore:
         self.openai = openai_client
         self.logger = get_logger('vector_store')
 
-    def find_similar_failures(
+    async def find_similar_failures(
         self,
         error_message: str,
         limit: int = 5,
@@ -38,16 +38,12 @@ class VectorStore:
         Returns:
             List of similar failures with similarity scores
         """
-        # Generate embedding for the error message
         try:
-            query_embedding = self.openai.create_embedding(error_message)
+            query_embedding = await self.openai.create_embedding(error_message)
         except Exception as e:
             self.logger.error("embedding_generation_failed", error=str(e))
             return []
 
-        # Vector similarity search using cosine distance
-        # pgvector: <=> operator computes cosine distance (0 = identical, 2 = opposite)
-        # Similarity = 1 - (distance / 2)
         query = """
             SELECT
                 failure_id,
@@ -65,7 +61,7 @@ class VectorStore:
             LIMIT %s
         """
 
-        results = self.db.execute_query(
+        results = await self.db.execute_query(
             query,
             (query_embedding, query_embedding, similarity_threshold, query_embedding, limit)
         )
@@ -78,7 +74,7 @@ class VectorStore:
 
         return results or []
 
-    def find_similar_patterns(
+    async def find_similar_patterns(
         self,
         task_description: str,
         problem_type: Optional[str] = None,
@@ -97,12 +93,11 @@ class VectorStore:
             List of similar patterns with similarity scores
         """
         try:
-            query_embedding = self.openai.create_embedding(task_description)
+            query_embedding = await self.openai.create_embedding(task_description)
         except Exception as e:
             self.logger.error("embedding_generation_failed", error=str(e))
             return []
 
-        # Build query with optional problem type filter
         query = """
             SELECT
                 pattern_id,
@@ -135,7 +130,7 @@ class VectorStore:
 
         params.extend([query_embedding, limit])
 
-        results = self.db.execute_query(query, tuple(params))
+        results = await self.db.execute_query(query, tuple(params))
 
         self.logger.info(
             "similar_patterns_found",
@@ -146,7 +141,7 @@ class VectorStore:
 
         return results or []
 
-    def store_failure_with_embedding(
+    async def store_failure_with_embedding(
         self,
         task_id: UUID,
         iteration_id: UUID,
@@ -170,11 +165,10 @@ class VectorStore:
         Returns:
             Failure UUID
         """
-        # Generate embedding from error signature + error type
         embedding_text = f"{error_type}: {error_signature}"
 
         try:
-            embedding = self.openai.create_embedding(embedding_text)
+            embedding = await self.openai.create_embedding(embedding_text)
         except Exception as e:
             self.logger.warning(
                 "failure_embedding_failed",
@@ -183,7 +177,7 @@ class VectorStore:
             )
             embedding = None
 
-        return self.db.store_failure(
+        return await self.db.store_failure(
             task_id=task_id,
             iteration_id=iteration_id,
             error_signature=error_signature,
@@ -194,7 +188,7 @@ class VectorStore:
             embedding=embedding
         )
 
-    def store_pattern_with_embedding(
+    async def store_pattern_with_embedding(
         self,
         problem_type: str,
         description: str,
@@ -214,11 +208,10 @@ class VectorStore:
         Returns:
             Pattern UUID
         """
-        # Generate embedding from problem type + description
         embedding_text = f"{problem_type}: {description}"
 
         try:
-            embedding = self.openai.create_embedding(embedding_text)
+            embedding = await self.openai.create_embedding(embedding_text)
         except Exception as e:
             self.logger.warning(
                 "pattern_embedding_failed",
@@ -227,7 +220,7 @@ class VectorStore:
             )
             embedding = None
 
-        return self.db.store_pattern(
+        return await self.db.store_pattern(
             problem_type=problem_type,
             description=description,
             code_template=code_template,
@@ -236,7 +229,7 @@ class VectorStore:
             embedding=embedding
         )
 
-    def get_failure_statistics(self) -> Dict[str, Any]:
+    async def get_failure_statistics(self) -> Dict[str, Any]:
         """Get statistics about stored failures.
 
         Returns:
@@ -252,10 +245,10 @@ class VectorStore:
             LEFT JOIN iterations i ON f.iteration_id = i.iteration_id
         """
 
-        results = self.db.execute_query(query)
+        results = await self.db.execute_query(query)
         return results[0] if results else {}
 
-    def get_pattern_statistics(self) -> Dict[str, Any]:
+    async def get_pattern_statistics(self) -> Dict[str, Any]:
         """Get statistics about stored patterns.
 
         Returns:
@@ -270,5 +263,5 @@ class VectorStore:
             FROM patterns
         """
 
-        results = self.db.execute_query(query)
+        results = await self.db.execute_query(query)
         return results[0] if results else {}

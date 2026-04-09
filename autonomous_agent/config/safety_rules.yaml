@@ -57,27 +57,27 @@ bandit:
 javascript_security:
   severity_threshold: "MEDIUM"
   blocked_patterns:
-    - pattern: "eval\s*\("
+    - pattern: 'eval\s*\('
       severity: HIGH
       message: "Use of eval() is dangerous and blocked"
-    - pattern: "Function\s*\("
+    - pattern: 'Function\s*\('
       severity: HIGH
       message: "Function constructor is similar to eval() and blocked"
-    - pattern: "setTimeout\s*\(\s*\""
+    - pattern: 'setTimeout\s*\(\s*[`''"]'
       severity: MEDIUM
       message: "setTimeout with string is similar to eval()"
-    - pattern: "setInterval\s*\(\s*\""
+    - pattern: 'setInterval\s*\(\s*[`''"]'
       severity: MEDIUM
       message: "setInterval with string is similar to eval()"
-    - pattern: "innerHTML\s*="
+    - pattern: 'innerHTML\s*='
       severity: MEDIUM
       message: "Direct innerHTML assignment can lead to XSS"
-    - pattern: "document\.write\s*\("
+    - pattern: 'document\.write\s*\('
       severity: MEDIUM  
       message: "document.write can lead to XSS and is deprecated"
-    - pattern: "localStorage\["
+    - pattern: 'localStorage\['
       severity: LOW
       message: "Direct localStorage access without sanitization"
-    - pattern: "location\."  
+    - pattern: 'location\.'  
       severity: LOW
       message: "Direct location manipulation could be dangerous"

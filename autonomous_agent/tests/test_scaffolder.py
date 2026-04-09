@@ -219,11 +219,10 @@ class TestProjectScaffolder:
     def test_case_insensitive_language(self):
         """Test language parameter is case-insensitive."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            workspace = Path(tmpdir)
             scaffolder = ProjectScaffolder()
 
-            for lang in ["python", "Python", "PYTHON"]:
-                ws = Path(tmpdir) / f"workspace_{lang}"
+            for i, lang in enumerate(["python", "Python", "PYTHON"]):
+                ws = Path(tmpdir) / f"workspace_{lang}_{i}"
                 result = scaffolder.ensure_scaffold(
                     workspace=ws,
                     language=lang,

@@ -5,10 +5,11 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 
-import psycopg2
-from psycopg2.extras import Json, RealDictCursor
-from psycopg2.pool import ThreadedConnectionPool
-from pgvector.psycopg2 import register_vector
+import psycopg
+from psycopg.types.json import Jsonb as Json
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
+from pgvector.psycopg import register_vector_async
 
 from src.ui.logger import get_logger
 
@@ -24,39 +25,28 @@ class DatabaseManager:
         """
         self.config = config['database']
         self.logger = get_logger('db_manager')
+        
+        conninfo = (
+            f"host={self.config['host']} port={self.config['port']} "
+            f"dbname={self.config['name']} user={self.config['user']} "
+            f"password={self.config['password']}"
+        )
+
+        async def configure_connection(conn):
+            await register_vector_async(conn)
 
         # Create connection pool
-        self.pool = ThreadedConnectionPool(
-            minconn=1,
-            maxconn=self.config.get('pool_size', 10),
-            host=self.config['host'],
-            port=self.config['port'],
-            database=self.config['name'],
-            user=self.config['user'],
-            password=self.config['password']
+        self.pool = AsyncConnectionPool(
+            conninfo,
+            min_size=1,
+            max_size=self.config.get('pool_size', 10),
+            kwargs={"row_factory": dict_row},
+            configure=configure_connection
         )
 
         self.logger.info("database_pool_created", database=self.config['name'])
 
-    def get_connection(self):
-        """Get a connection from the pool.
-
-        Returns:
-            psycopg2 connection
-        """
-        conn = self.pool.getconn()
-        register_vector(conn)  # Register pgvector types
-        return conn
-
-    def return_connection(self, conn):
-        """Return a connection to the pool.
-
-        Args:
-            conn: Connection to return
-        """
-        self.pool.putconn(conn)
-
-    def execute_query(
+    async def execute_query(
         self,
         query: str,
         params: Optional[Tuple] = None,
@@ -72,21 +62,17 @@ class DatabaseManager:
         Returns:
             Query results as list of dicts, or None if fetch=False
         """
-        conn = None
         try:
-            conn = self.get_connection()
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, params)
-                if fetch:
-                    results = cur.fetchall()
-                    return [dict(row) for row in results]
-                else:
-                    conn.commit()
-                    return None
-
+            async with self.pool.connection() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(query, params)
+                    if fetch:
+                        results = await cur.fetchall()
+                        return results
+                    else:
+                        await conn.commit()
+                        return None
         except Exception as e:
-            if conn:
-                conn.rollback()
             self.logger.error(
                 "database_query_error",
                 query=query[:100],
@@ -94,13 +80,9 @@ class DatabaseManager:
             )
             raise
 
-        finally:
-            if conn:
-                self.return_connection(conn)
-
     # ==================== TASK OPERATIONS ====================
 
-    def create_task(
+    async def create_task(
         self,
         description: str,
         goal: str,
@@ -121,7 +103,7 @@ class DatabaseManager:
             VALUES (%s, %s, 'planning', %s)
             RETURNING task_id
         """
-        result = self.execute_query(
+        result = await self.execute_query(
             query,
             (description, goal, Json(metadata or {})),
             fetch=True
@@ -131,7 +113,7 @@ class DatabaseManager:
         self.logger.info("task_created", task_id=str(task_id))
         return task_id
 
-    def update_task_status(
+    async def update_task_status(
         self,
         task_id: UUID,
         status: str,
@@ -169,10 +151,10 @@ class DatabaseManager:
         query = f"UPDATE tasks SET {', '.join(updates)} WHERE task_id = %s"
         params.append(str(task_id))
 
-        self.execute_query(query, tuple(params), fetch=False)
+        await self.execute_query(query, tuple(params), fetch=False)
         self.logger.info("task_status_updated", task_id=str(task_id), status=status)
 
-    def get_task(self, task_id: UUID) -> Optional[Dict[str, Any]]:
+    async def get_task(self, task_id: UUID) -> Optional[Dict[str, Any]]:
         """Get task by ID.
 
         Args:
@@ -182,12 +164,12 @@ class DatabaseManager:
             Task dictionary or None
         """
         query = "SELECT * FROM tasks WHERE task_id = %s"
-        results = self.execute_query(query, (str(task_id),))
+        results = await self.execute_query(query, (str(task_id),))
         return results[0] if results else None
 
     # ==================== ITERATION OPERATIONS ====================
 
-    def create_iteration(
+    async def create_iteration(
         self,
         task_id: UUID,
         iteration_number: int,
@@ -208,7 +190,7 @@ class DatabaseManager:
             VALUES (%s, %s, %s)
             RETURNING iteration_id
         """
-        result = self.execute_query(
+        result = await self.execute_query(
             query,
             (str(task_id), iteration_number, phase),
             fetch=True
@@ -223,7 +205,7 @@ class DatabaseManager:
         )
         return iteration_id
 
-    def update_iteration(
+    async def update_iteration(
         self,
         iteration_id: UUID,
         code_snapshot: Optional[str] = None,
@@ -276,11 +258,11 @@ class DatabaseManager:
         if updates:
             query = f"UPDATE iterations SET {', '.join(updates)} WHERE iteration_id = %s"
             params.append(str(iteration_id))
-            self.execute_query(query, tuple(params), fetch=False)
+            await self.execute_query(query, tuple(params), fetch=False)
 
     # ==================== FAILURE OPERATIONS ====================
 
-    def store_failure(
+    async def store_failure(
         self,
         task_id: UUID,
         iteration_id: UUID,
@@ -314,7 +296,7 @@ class DatabaseManager:
             RETURNING failure_id
         """
 
-        result = self.execute_query(
+        result = await self.execute_query(
             query,
             (
                 str(task_id),
@@ -337,7 +319,7 @@ class DatabaseManager:
         )
         return failure_id
 
-    def mark_failure_fixed(
+    async def mark_failure_fixed(
         self,
         failure_id: UUID,
         fix_iteration: int,
@@ -355,11 +337,11 @@ class DatabaseManager:
             SET fixed = TRUE, fix_iteration = %s, solution = %s
             WHERE failure_id = %s
         """
-        self.execute_query(query, (fix_iteration, solution, str(failure_id)), fetch=False)
+        await self.execute_query(query, (fix_iteration, solution, str(failure_id)), fetch=False)
 
     # ==================== PATTERN OPERATIONS ====================
 
-    def store_pattern(
+    async def store_pattern(
         self,
         problem_type: str,
         description: str,
@@ -389,7 +371,7 @@ class DatabaseManager:
             RETURNING pattern_id
         """
 
-        result = self.execute_query(
+        result = await self.execute_query(
             query,
             (
                 problem_type,
@@ -406,7 +388,7 @@ class DatabaseManager:
         self.logger.info("pattern_stored", pattern_id=str(pattern_id))
         return pattern_id
 
-    def update_pattern_usage(self, pattern_id: UUID, success: bool):
+    async def update_pattern_usage(self, pattern_id: UUID, success: bool):
         """Update pattern usage statistics.
 
         Args:
@@ -422,11 +404,11 @@ class DatabaseManager:
                 last_used = NOW()
             WHERE pattern_id = %s
         """
-        self.execute_query(query, (1.0 if success else 0.0, str(pattern_id)), fetch=False)
+        await self.execute_query(query, (1.0 if success else 0.0, str(pattern_id)), fetch=False)
 
     # ==================== METRICS OPERATIONS ====================
 
-    def store_metric(
+    async def store_metric(
         self,
         task_id: UUID,
         metric_type: str,
@@ -445,7 +427,7 @@ class DatabaseManager:
             INSERT INTO metrics (task_id, metric_type, value, metadata)
             VALUES (%s, %s, %s, %s)
         """
-        self.execute_query(
+        await self.execute_query(
             query,
             (str(task_id), metric_type, value, Json(metadata or {})),
             fetch=False
@@ -453,7 +435,7 @@ class DatabaseManager:
 
     # ==================== APPROVAL OPERATIONS ====================
 
-    def store_approval(
+    async def store_approval(
         self,
         task_id: UUID,
         iteration_id: UUID,
@@ -483,7 +465,7 @@ class DatabaseManager:
             RETURNING approval_id
         """
 
-        result = self.execute_query(
+        result = await self.execute_query(
             query,
             (
                 str(task_id),
@@ -498,8 +480,8 @@ class DatabaseManager:
 
         return result[0]['approval_id']
 
-    def close(self):
+    async def close(self):
         """Close all database connections."""
         if self.pool:
-            self.pool.closeall()
+            await self.pool.close()
             self.logger.info("database_pool_closed")

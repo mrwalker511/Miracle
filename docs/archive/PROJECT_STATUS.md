@@ -1,225 +1,278 @@
-# Project Status Report
+# Project Status & Remaining Phases
 
-## 🎯 Executive Summary
-
-**Project Name**: Miracle - Autonomous Coding Agent
+**Project**: Miracle — Autonomous Coding Agent  
+**Last Updated**: 2026-04-09  
 **Version**: 0.1.0
-**Status**: ✅ **Production Ready**
-**Last Updated**: 2025-01-16
 
 ---
 
-## 📊 Overall Status
+## Current State Audit
 
-| Category | Status | Completion |
-|----------|--------|------------|
-| **Features** | ✅ Complete | 95% |
-| **Testing** | ⚠️ Partial | 70% |
-| **Documentation** | ✅ Complete | 90% |
-| **Code Quality** | ✅ Excellent | 95% |
+### ✅ What's Built and Working
 
----
+| Component | File(s) | Status | Notes |
+|-----------|---------|--------|-------|
+| **CLI Entry Point** | `src/main.py` | ✅ Complete | Click CLI with `run`, `history`, `setup` commands. Rich UI panels. |
+| **Orchestrator** | `src/orchestrator.py` | ✅ Complete | Full state machine (INIT→PLANNING→CODING→TESTING→REFLECTING→loop). 667 lines. |
+| **Agent Base Class** | `src/agents/base_agent.py` | ✅ Complete | `BaseAgent` ABC with `execute()`, `build_messages()`, `call_llm()`, `extract_text_response()`, `extract_tool_calls()`. |
+| **Planner Agent** | `src/agents/planner.py` | ✅ Complete | Task decomposition, pattern memory queries, plan parsing. |
+| **Coder Agent** | `src/agents/coder.py` | ✅ Complete | Code generation via LLM tool calls, file writing. 13KB. |
+| **Tester Agent** | `src/agents/tester.py` | ✅ Complete | Test generation and execution via sandbox. 14KB. |
+| **Reflector Agent** | `src/agents/reflector.py` | ✅ Complete | Error analysis, vector search for similar failures, fix hypothesis. 8.7KB. |
+| **Code Reviewer** | `src/agents/optional/code_reviewer.py` | ✅ Complete | Optional phase, flag-enabled (`--enable-review`). |
+| **Security Auditor** | `src/agents/optional/security_auditor.py` | ✅ Complete | Optional phase, flag-enabled (`--enable-audit`). 16KB. |
+| **Agent Factory** | `src/agents/__init__.py` | ✅ Complete | Registry + factory pattern for agent creation. |
+| **Reprompter** | `src/preprocessing/reprompter.py` | ✅ Complete | Turns rough tasks into structured goals. 19KB. Handles clarification questions. |
+| **OpenAI Client** | `src/llm/openai_client.py` | ✅ Complete | Chat completions + embeddings, Tenacity retry, fallback model sequence, token tracking. |
+| **Tool Definitions** | `src/llm/tools.py` | ✅ Complete | OpenAI function calling schemas (create_file, read_file, etc.). |
+| **Token Counter** | `src/llm/token_counter.py` | ✅ Complete | tiktoken-based counting, cost estimation. |
+| **Database Manager** | `src/memory/db_manager.py` | ✅ Complete | Full CRUD: tasks, iterations, failures, patterns, metrics, approvals. Connection pooling. 506 lines. |
+| **Vector Store** | `src/memory/vector_store.py` | ✅ Complete | Embedding storage + cosine similarity for failures and patterns. 8.7KB. |
+| **Failure Analyzer** | `src/memory/failure_analyzer.py` | ✅ Complete | Parses test output into structured errors, diagnoses, error signatures. 13KB. |
+| **Pattern Matcher** | `src/memory/pattern_matcher.py` | ✅ Complete | Thin wrapper over VectorStore for pattern retrieval. |
+| **Sandbox Manager** | `src/sandbox/sandbox_manager.py` | ✅ Complete | Dual-mode (Docker/subprocess). 11 language runtimes. Execution hooks integration. 673 lines. |
+| **Docker Executor** | `src/sandbox/docker_executor.py` | ✅ Complete | Container lifecycle, resource limits, volume mounts. |
+| **Safety Checker** | `src/sandbox/safety_checker.py` | ✅ Complete | AST scanning + Bandit SAST integration. |
+| **Resource Limits** | `src/sandbox/resource_limits.py` | ✅ Complete | CPU, RAM, timeout dataclass. |
+| **Circuit Breaker** | `src/utils/circuit_breaker.py` | ✅ Complete | Warning threshold + hard stop. |
+| **Context Hygiene** | `src/utils/context_hygiene.py` | ✅ Complete | Token budget management, compaction, recency bias. 13KB. |
+| **Execution Hooks** | `src/utils/execution_hooks.py` | ✅ Complete | Pre/post hooks for safety guardrails. 16KB. |
+| **State Saver** | `src/utils/state_saver.py` | ✅ Complete | Checkpoint/resume to JSON. |
+| **Metrics Collector** | `src/utils/metrics_collector.py` | ✅ Complete | Token usage + test pass rate recording. |
+| **Logger** | `src/ui/logger.py` | ✅ Complete | structlog JSON logging. |
+| **Progress** | `src/ui/progress.py` | ✅ Complete | Rich progress bars. |
+| **Approval Prompt** | `src/ui/approval_prompt.py` | ✅ Complete | Interactive Y/N prompts. |
+| **Project Scaffolder** | `src/projects/scaffolder.py` | ✅ Complete | Language-specific project setup (Python, Node, Java, C#, Go, Rust, Ruby, PHP, Swift, Kotlin, Elixir). 22KB. |
+| **Config Loader** | `src/config_loader.py` | ✅ Complete | YAML loading with env var substitution. |
+| **DB Schema** | `scripts/init_db.sql` | ✅ Complete | Tables: tasks, iterations, failures, patterns, metrics, approvals with pgvector. |
+| **YAML Configs** | `config/*.yaml` | ✅ Complete | settings, database, openai, safety_rules, system_prompts, allowed_deps. |
+| **Unit Tests** | `tests/` | ⚠️ Partial | 101 tests, **100 passing, 1 failing** (scaffolder case-insensitive language test). |
+| **Documentation** | `docs/` | ✅ Complete | 10 architecture files, 10 agent docs, progressive disclosure from AGENTS.md. |
 
-## ✅ Features Status
+### ⚠️ Known Issues
 
-### Core Features - **100% Complete**
-
-- ✅ **Autonomous Coding Loop**: Planning → Coding → Testing → Reflecting cycle
-- ✅ **State Machine Orchestration**: 15-iteration limit with circuit breaker
-- ✅ **Specialized Agents**: Planner, Coder, Tester, Reflector agents
-- ✅ **LLM Integration**: OpenAI API with Tenacity retries
-- ✅ **Memory System**: PostgreSQL + pgvector for learning
-- ✅ **Safety Mechanisms**: AST scanning, Bandit SAST, Docker sandboxing
-- ✅ **Multi-language Support**: Python and Node.js generation
-- ✅ **CLI Interface**: Click + Rich UI
-- ✅ **Configuration**: YAML-based with environment variables
-- ✅ **Task Management**: History, resume, and checkpointing
-
-### Advanced Features - **90% Complete**
-
-- ✅ **Vector Similarity Search**: Failure pattern matching
-- ✅ **Automatic Test Generation**: pytest + hypothesis
-- ✅ **Property-based Testing**: Hypothesis integration
-- ✅ **Docker Sandboxing**: Isolated execution environments
-- ✅ **Resource Limits**: CPU, RAM, and timeout constraints
-- ✅ **Structured Logging**: JSON logging with structlog
-- ✅ **Metrics Collection**: Performance tracking
-- ⚠️ **Parallel Execution**: Not implemented (future enhancement)
-- ⚠️ **Multi-file Refactoring**: Basic support, needs enhancement
-
----
-
-## 🧪 Testing Status
-
-### Unit Tests - **100% Complete**
-
-- ✅ **75 tests passing** (100% pass rate)
-- ✅ **Core utilities**: Circuit breaker, config loader, token counter
-- ✅ **Failure analysis**: Error parsing and classification
-- ✅ **Project scaffolding**: Multi-language project structure
-- ✅ **State management**: Checkpoint and resume functionality
-
-### Integration Tests - **0% Complete**
-
-- ❌ **Agent interactions**: No tests for agent communication
-- ❌ **Orchestration workflow**: No tests for complete workflow
-- ❌ **Database interactions**: No tests for DB operations
-- ❌ **LLM integration**: No tests for API calls
-
-### End-to-End Tests - **0% Complete**
-
-- ❌ **Complete task execution**: No tests for full autonomous loop
-- ❌ **Multi-iteration scenarios**: No tests for failure recovery
-- ❌ **Edge case handling**: No tests for error conditions
-- ❌ **Performance testing**: No benchmark tests
+1. **1 failing test**: `test_case_insensitive_language` in `test_scaffolder.py` — the scaffolder doesn't handle `"PYTHON"` as a language input.
+2. **Sync-only codebase**: AGENTS.md requires "all agent methods and LLM calls must be async", but the entire codebase is **synchronous**. `BaseAgent.execute()` is `def execute()`, not `async def execute()`. `OpenAIClient.chat_completion()` is synchronous. The `Orchestrator.run()` is synchronous. There is **zero** `async def` usage in the source (only a string match in tester.py for parsing code).
+3. **Architecture docs describe async API** (`async def execute()`, `async run()`) but the implementation is fully synchronous. The docs and code are misaligned.
+4. **No end-to-end test coverage** — never been run against a real LLM + database.
+5. **`--resume` CLI command** is documented in the handoff doc but not implemented in `main.py`.
+6. **`--metrics` CLI command** is documented but not implemented.
+7. **`--config` CLI command** is documented but not implemented.
+8. **Coverage integration** — `src/testing/coverage_analyzer.py` exists but is not wired into the main loop (docstring says so explicitly).
+9. **`REQUIRE_APPROVAL` hook result** — sandbox manager logs a warning but does not actually pause for user approval (comment says "In a full implementation, this would pause for user approval").
 
 ---
 
-## 📚 Documentation Status
+## Remaining Phases
 
-### Documentation Files - **100% Complete**
+### Phase 1: Stabilize & Fix (Priority: 🔴 Critical)
 
-**Original Files (All Present and Complete):**
-- ✅ README.md (153 lines) - Main project overview
-- ✅ autonomous_agent/README.md (309 lines) - Agent-specific documentation
-- ✅ AGENT-PLANNING.md (722 lines) - For planning agents
-- ✅ AGENT-EXECUTION.md (1094 lines) - For execution agents
-- ✅ ARCHITECTURE.md (1622 lines) - Technical architecture
-- ✅ FUNCTIONALITY.md (1399 lines) - System behavior
-- ✅ DEPENDENCIES.md (1379 lines) - Setup and configuration
-- ✅ autonomous_coding_agent_handoff.md (1516 lines) - Handoff document
+> **Goal**: Make the existing code actually runnable end-to-end.
 
-### Documentation Optimization - **90% Complete**
+#### 1.1 Fix the Failing Test
 
-**Optimization Completed:**
-- ✅ **ARCHITECTURE.md split**: 1622 lines → 10 focused files (200-500 lines each)
-- ✅ **New docs/architecture/ directory**: Better organization
-- ✅ **AI agent efficiency**: Optimal file lengths for context windows
-- ✅ **Improved navigation**: Clear structure with numbered prefixes
+- [ ] Fix `test_case_insensitive_language` in `test_scaffolder.py` — scaffolder should normalize language input to lowercase before matching.
 
-**Optimization Remaining:**
-- ⚠️ **FUNCTIONALITY.md**: Needs splitting (1399 lines)
-- ⚠️ **DEPENDENCIES.md**: Needs splitting (1379 lines)
-- ⚠️ **AGENT-EXECUTION.md**: Needs splitting (1094 lines)
-- ⚠️ **autonomous_coding_agent_handoff.md**: Needs splitting (1516 lines)
+#### 1.2 Async Migration
 
----
+- [ ] Convert `BaseAgent.execute()` to `async def execute()`
+- [ ] Convert `OpenAIClient.chat_completion()` to async (use `openai.AsyncOpenAI`)
+- [ ] Convert `OpenAIClient.create_embedding()` to async
+- [ ] Convert `Orchestrator.run()` to `async def run()`
+- [ ] Convert all orchestrator phase methods to async (`_execute_planning_phase`, etc.)
+- [ ] Convert `DatabaseManager` to async (use `asyncpg` or `psycopg[async]` instead of `psycopg2`)
+- [ ] Update `main.py` to use `asyncio.run()` for the CLI entry point
+- [ ] Update all agent subclasses (`PlannerAgent`, `CoderAgent`, `TesterAgent`, `ReflectorAgent`, `CodeReviewerAgent`, `SecurityAuditorAgent`) to async
+- [ ] Update all tests to use `pytest-asyncio`
+- [ ] Update `requirements.txt` (add `asyncpg` or `psycopg[async]`, `pytest-asyncio` if not present)
 
-## 🏗️ Code Quality
+> [!IMPORTANT]
+> This is the single largest piece of tech debt. The AGENTS.md mandate and architecture docs both describe an async system, but nothing is async. This must be resolved before any real execution or new feature work.
 
-### Architecture - **Excellent**
+#### 1.3 Documentation-Code Alignment
 
-- ✅ **Clean Architecture**: Clear separation of concerns
-- ✅ **Design Patterns**: State Machine, Agent, Repository, Circuit Breaker
-- ✅ **Type Safety**: Comprehensive type hints throughout
-- ✅ **Error Handling**: Robust exception handling
-- ✅ **Configuration**: Flexible YAML-based configuration
-
-### Code Organization - **Excellent**
-
-- ✅ **Logical Module Structure**: Well-organized components
-- ✅ **Dependency Injection**: Clean component integration
-- ✅ **Interface Design**: Abstract base classes and interfaces
-- ✅ **Testability**: Mock-friendly design
-- ✅ **Maintainability**: Clear naming conventions
-
-### Performance - **Good**
-
-- ✅ **Efficient Database**: PostgreSQL + pgvector
-- ✅ **Caching**: LRU caching for embeddings
-- ✅ **Retry Logic**: Tenacity for API resilience
-- ✅ **Resource Management**: Docker resource limits
-- ⚠️ **Parallelization**: Not implemented (future enhancement)
+- [ ] Update `docs/agents/architecture.md` to reflect actual sync/async state post-migration
+- [ ] Update code examples in `docs/agents/code-conventions.md` if patterns change
 
 ---
 
-## 🚀 Deployment Status
+### Phase 2: End-to-End Verification (Priority: 🟠 High)
 
-### Local Development - **100% Complete**
+> **Goal**: Prove the core loop works against real infrastructure.
 
-- ✅ **Docker Compose**: PostgreSQL + pgvector setup
-- ✅ **Virtual Environment**: Python 3.11 dependencies
-- ✅ **Database Initialization**: Schema setup script
-- ✅ **CLI Interface**: Working command-line interface
-- ✅ **Configuration**: Environment variable support
+#### 2.1 Local Smoke Test
 
-### Production Deployment - **Planned**
+- [ ] Start PostgreSQL + pgvector (Docker Compose or local install)
+- [ ] Run `scripts/setup_db.py` to initialize database
+- [ ] Set up `.env` with a valid `OPENAI_API_KEY`
+- [ ] Execute a simple task: `python -m src.main run --task "Write a function that reverses a string" --language python`
+- [ ] Verify: task creates in DB, iterations record, code generates, tests run, success or meaningful failure
+- [ ] Document any runtime errors and fix them
 
-- ⚠️ **Cloud Deployment**: Architecture designed, not implemented
-- ⚠️ **Container Orchestration**: Kubernetes/ECS ready
-- ⚠️ **Scaling**: Horizontal scaling architecture defined
-- ⚠️ **Monitoring**: Prometheus + Grafana planned
-- ⚠️ **CI/CD**: Pipeline architecture defined
+#### 2.2 Multi-Iteration Verification
 
----
+- [ ] Execute a task complex enough to require >1 iteration (e.g., "Build a REST API with CRUD endpoints using Flask")
+- [ ] Verify: reflector runs, failure stored in DB, vector search works, coder retries
+- [ ] Verify: pattern stored on success
 
-## 📊 Metrics & Statistics
+#### 2.3 Learning System Verification
 
-### Code Metrics
-
-- **Total Files**: 50+ Python files
-- **Lines of Code**: ~5,000 lines (core system)
-- **Test Coverage**: 75 unit tests (100% pass rate)
-- **Documentation**: 8,000+ lines (original + optimized)
-- **Configuration**: 7 YAML files for flexible setup
-
-### Performance Metrics
-
-- **Average Iteration Time**: ~30-60 seconds
-- **Max Iterations**: 15 (configurable)
-- **Token Usage**: ~1,000-5,000 tokens per iteration
-- **Success Rate**: ~70-90% for typical tasks
-- **Failure Learning**: Vector similarity search for past solutions
+- [ ] Run the same or similar task again
+- [ ] Verify: planner retrieves stored pattern from first run
+- [ ] Verify: fewer iterations needed (learning is working)
 
 ---
 
-## 🎯 Recommendations
+### Phase 3: Integration & E2E Tests (Priority: 🟠 High)
 
-### High Priority
+> **Goal**: Add the test coverage that's completely missing.
 
-1. **Add Integration Tests**: Test agent interactions and workflow
-2. **Add End-to-End Tests**: Test complete autonomous execution
-3. **Optimize Remaining Documentation**: Split long files for AI efficiency
-4. **Implement CI/CD Pipeline**: Automated testing and deployment
-5. **Add Performance Monitoring**: Track execution metrics
+#### 3.1 Integration Tests (`tests/integration/`)
 
-### Medium Priority
+- [ ] `test_agent_interactions.py` — Test that agents pass context correctly through the orchestrator
+- [ ] `test_database_operations.py` — Test full DB lifecycle (create task → iterations → failures → patterns) against a test database
+- [ ] `test_vector_search.py` — Test embedding storage and cosine similarity retrieval (requires test DB with pgvector)
+- [ ] `test_reprompter_flow.py` — Test task structuring end-to-end with mocked LLM
 
-1. **Implement Parallel Execution**: Speed up independent operations
-2. **Add More Examples**: Enhance documentation with practical examples
-3. **Implement Configuration Validation**: Validate YAML files
-4. **Add Development Setup Guide**: Help contributors get started
-5. **Enhance Error Handling**: More specific error messages
+#### 3.2 End-to-End Tests (`tests/e2e/`)
 
-### Low Priority
+- [ ] `test_simple_function.py` — Complete loop for "write a fibonacci function"
+- [ ] `test_api_task.py` — Complete loop for "build a REST API"  
+- [ ] `test_node_task.py` — Complete loop for "create a Node.js CLI tool"
+- [ ] `test_failure_recovery.py` — Verify the system recovers from deliberate test failures
+- [ ] `test_max_iterations.py` — Verify graceful failure after max iterations
 
-1. **Add More Languages**: TypeScript, Go, Java support
-2. **Implement Web UI**: Dashboard for monitoring tasks
-3. **Add Collaborative Features**: Multi-agent coordination
-4. **Implement Cost Optimization**: Budget tracking and alerts
-5. **Add Advanced Analytics**: Task success prediction
+#### 3.3 Test Infrastructure
+
+- [ ] Create `conftest.py` fixtures for: test database, mocked OpenAI client, temporary workspaces
+- [ ] Add `docker-compose.test.yml` for test database
+- [ ] Add CI configuration (GitHub Actions) for automated test runs
 
 ---
 
-## 🏆 Conclusion
+### Phase 4: Missing CLI Commands & UX (Priority: 🟡 Medium)
 
-**Overall Status**: ✅ **Production Ready**
+> **Goal**: Implement the CLI commands that are documented but not built.
 
-The Autonomous Coding Agent is **functionally complete** and **ready for production use**. All core features are implemented, tested, and working. The system demonstrates excellent architecture, clean code, and comprehensive documentation.
+#### 4.1 `--resume` Command
 
-**Key Strengths**:
-- Complete feature implementation
-- Robust architecture and design
-- Excellent documentation (though verbose)
-- Good unit test coverage for utilities
-- Comprehensive safety mechanisms
-- Multi-language support
-- Learning system with vector embeddings
+- [ ] Add `resume` command to `main.py` CLI
+- [ ] Load checkpoint from `StateSaver` or database
+- [ ] Reconstruct `Orchestrator` state from checkpoint
+- [ ] Resume execution from the saved iteration/state
 
-**Areas for Improvement**:
-- Testing: Need integration and end-to-end tests
-- Documentation: Optimize remaining long files for AI efficiency
-- Deployment: Implement production deployment pipeline
-- Performance: Add parallel execution capabilities
+#### 4.2 `--metrics` Command
 
-**Recommendation**: The system is ready for **production deployment** with the understanding that additional testing and documentation optimization would enhance long-term maintainability and reliability.
+- [ ] Add `metrics` command to display performance metrics dashboard
+- [ ] Query metrics table for: success rate, average iterations, token usage, duration
+- [ ] Render with Rich tables/panels
+
+#### 4.3 Approval System Integration
+
+- [ ] Wire up `REQUIRE_APPROVAL` hook result to actually pause and prompt the user
+- [ ] Integrate `approval_prompt.py` with `sandbox_manager.py`
+- [ ] Store approval decisions in the `approvals` table
+
+#### 4.4 Coverage Integration
+
+- [ ] Wire `coverage_analyzer.py` into the tester agent output
+- [ ] Report coverage results in the CLI output
+- [ ] Store coverage metrics in the metrics table
+
+---
+
+### Phase 5: Hardening & Production Readiness (Priority: 🟡 Medium)
+
+> **Goal**: Make the system robust enough for daily use.
+
+#### 5.1 Error Handling & Recovery
+
+- [ ] Add graceful handling for OpenAI API outages mid-loop
+- [ ] Add handling for database connection drops
+- [ ] Add workspace cleanup on failure (don't leak temp directories)
+- [ ] Add proper signal handling (Ctrl+C gracefully saves checkpoint)
+
+#### 5.2 Configuration Validation
+
+- [ ] Add YAML schema validation on startup (fail fast with helpful errors)
+- [ ] Validate `OPENAI_API_KEY` is set before attempting any run
+- [ ] Validate database connectivity before starting a task
+
+#### 5.3 Observability
+
+- [ ] Add structured log aggregation guidance (ELK, Loki)
+- [ ] Add optional Prometheus metrics endpoint
+- [ ] Add task duration tracking and reporting
+
+#### 5.4 CI/CD Pipeline
+
+- [ ] GitHub Actions workflow for: lint (black, isort, flake8), type check (mypy), unit tests
+- [ ] Pre-commit hooks configuration
+- [ ] Automated release process
+
+---
+
+### Phase 6: Advanced Features (Priority: 🟢 Low / Future)
+
+> **Goal**: Stretch features for v1.0+.
+
+#### 6.1 Parallel Execution
+
+- [ ] Run independent subtasks concurrently (asyncio.gather)
+- [ ] Track parallel iteration state
+
+#### 6.2 Multi-File Refactoring
+
+- [ ] Enhanced coder agent that understands project-wide changes
+- [ ] Dependency graph analysis for change impact
+
+#### 6.3 Web Dashboard
+
+- [ ] FastAPI backend exposing task/metrics data
+- [ ] React/HTML dashboard for monitoring active and historical tasks
+
+#### 6.4 Cost Optimization
+
+- [ ] Model routing based on task complexity (GPT-3.5 for simple, GPT-4 for complex)
+- [ ] Budget tracking and alerts per task
+- [ ] Token usage analytics
+
+#### 6.5 Collaborative Learning
+
+- [ ] Export/import pattern databases
+- [ ] Share patterns across agent instances
+- [ ] Pre-seeded pattern library for common tasks
+
+#### 6.6 Additional LLM Providers
+
+- [ ] Anthropic Claude support via litellm
+- [ ] Local model support (Ollama)
+- [ ] Provider abstraction layer
+
+---
+
+## Recommended Next Action
+
+**Start with Phase 1.1 (fix the failing test)** — it's a 5-minute fix and gets the test suite to 100%.
+
+**Then tackle Phase 1.2 (async migration)** — this is the largest and most impactful change. The entire architecture is designed for async but implemented synchronously. Until this is resolved, the codebase contradicts its own AGENTS.md and architecture docs. This will touch every file in `src/` and every test.
+
+**After that, Phase 2 (end-to-end verification)** will quickly reveal any remaining integration bugs when the system runs against real OpenAI and PostgreSQL.
+
+---
+
+## Metrics Snapshot
+
+| Metric | Value |
+|--------|-------|
+| **Source files** | 32 Python files in `src/` |
+| **Lines of code** | ~5,000 lines (core system) |
+| **Test files** | 7 test files |
+| **Tests** | 101 total, 100 passing, 1 failing |
+| **Configuration files** | 6 YAML/JSON files |
+| **Documentation files** | 20+ markdown files |
+| **Languages supported** | 11 (Python, Node, Java, C#, Go, Rust, Ruby, PHP, Swift, Kotlin, Elixir) |
+| **Async compliance** | ❌ 0% (all sync, docs say async) |
+| **Integration test coverage** | ❌ 0% |
+| **E2E test coverage** | ❌ 0% |
+| **Has been run end-to-end** | ❌ Unknown/unlikely |

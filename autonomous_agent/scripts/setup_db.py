@@ -25,7 +25,7 @@ def setup_database():
 
     # Create database manager
     try:
-        db_manager = DatabaseManager(configs)
+        db_manager = DatabaseManager(configs['database'])
         print("✓ Connected to database")
 
         # Read and execute init script

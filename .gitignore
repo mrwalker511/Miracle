@@ -25,3 +25,4 @@ Thumbs.db
 
 # Project-generated sandboxes
 sandbox/workspace/
+autonomous_agent/models/Qwen3-8B.Q4_K_M.gguf

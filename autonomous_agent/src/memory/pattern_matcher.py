@@ -28,7 +28,7 @@ class PatternMatcher:
     def __init__(self, vector_store: VectorStore):
         self.vector_store = vector_store
 
-    def find_relevant_patterns(
+    async def find_relevant_patterns(
         self,
         *,
         task_description: str,
@@ -37,7 +37,7 @@ class PatternMatcher:
     ) -> List[Dict[str, Any]]:
         """Return patterns in the same shape as the DB records."""
 
-        return self.vector_store.find_similar_patterns(
+        return await self.vector_store.find_similar_patterns(
             task_description=task_description,
             problem_type=problem_type,
             limit=limit,

@@ -1,18 +1,22 @@
-# OpenAI API Configuration (FLEXIBLE)
+# autonomous_agent/config/openai.yaml
+api_base: "http://localhost:8081/v1"
+default_model: "qwen3-8b"
+timeout: 60  # Local models can be slow; give them more time
+max_retries: 3
+
 openai:
   api_key: ${OPENAI_API_KEY}  # From environment
   organization: ${OPENAI_ORG_ID}  # Optional
 
-  # Model selection - FLEXIBLE TO USE ANY OPENAI MODEL
+  # Model selection - pointed at local Qwen 3 8B model via LocalAI
   models:
-    # Primary agent models
-    planner: "gpt-4-turbo-preview"    # Can be: gpt-4, gpt-4-turbo, gpt-3.5-turbo, etc.
-    coder: "gpt-4-turbo-preview"      # Can be: any chat completion model
-    tester: "gpt-4-turbo-preview"     # Can be: any chat completion model
-    reflector: "gpt-4-turbo-preview"  # Can be: any chat completion model
+    planner: "qwen3-8b"
+    coder: "qwen3-8b"
+    tester: "qwen3-8b"
+    reflector: "qwen3-8b"
 
     # Embedding model
-    embedding: "text-embedding-3-large"  # Can be: text-embedding-3-small, text-embedding-ada-002
+    embedding: "text-embedding-3-large"
 
   # API parameters
   temperature: 0.2  # Low for code generation
@@ -44,6 +48,4 @@ openai:
 fallback:
   enabled: true
   sequence:
-    - "gpt-4-turbo-preview"
-    - "gpt-4"
-    - "gpt-3.5-turbo-16k"
+    - "qwen3-8b"
