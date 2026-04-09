@@ -28,6 +28,7 @@ Navigate by what you need to accomplish:
 ### 🏗️ Architecture Deep-Dive
 
 **[docs/architecture/](docs/architecture/)** - Complete technical architecture (10 focused files)
+
 - Each file covers a specific architectural concern (200-500 lines)
 - Numbered for logical progression
 - From system overview to technical decisions
@@ -35,6 +36,7 @@ Navigate by what you need to accomplish:
 ### 🔄 Functionality Documentation
 
 **[docs/agents/agent-behaviors.md](docs/agents/agent-behaviors.md)** - Agent behaviors and operational flows
+
 - Core functionality explained
 - Iteration loop behavior
 - Agent behaviors (Planner, Coder, Tester, Reflector)
@@ -43,6 +45,7 @@ Navigate by what you need to accomplish:
 ### 📦 Dependencies & Setup
 
 **[docs/agents/getting-started.md](docs/agents/getting-started.md)** - Setup, configuration, and dependency management
+
 - System requirements
 - Installation guide (all platforms)
 - Python dependencies
@@ -90,6 +93,7 @@ python -m src.main run --task "Write a function to calculate fibonacci" --langua
 ### What It Does
 
 The Autonomous Coding Agent accepts high-level coding tasks and autonomously:
+
 1. **Plans** - Breaks down tasks into subtasks
 2. **Codes** - Generates code using LLM + tools
 3. **Tests** - Generates and runs comprehensive tests

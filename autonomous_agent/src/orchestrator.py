@@ -225,7 +225,7 @@ class Orchestrator:
             self.current_iteration += 1
             iteration_start = time.time()
 
-            self.metrics.start_iteration()
+            await self.metrics.start_iteration()
             self.context['iteration'] = self.current_iteration
 
             self.logger.info(

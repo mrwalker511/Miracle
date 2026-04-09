@@ -262,7 +262,7 @@ Focus on blocking and important questions first."""
         self.min_clarity_score = min_clarity_score
         self.logger = get_logger('reprompter')
 
-    def process(
+    async def process(
         self,
         raw_input: str,
         additional_context: Optional[Dict[str, Any]] = None
@@ -279,12 +279,12 @@ Focus on blocking and important questions first."""
         self.logger.info("reprompter_started", input_length=len(raw_input))
 
         # First pass: analyze input
-        analysis = self._analyze_input(raw_input, additional_context)
+        analysis = await self._analyze_input(raw_input, additional_context)
 
         # Check if clarification is needed
         questions = []
         if analysis['clarity_score'] < self.min_clarity_score:
-            questions = self._generate_questions(raw_input, analysis)
+            questions = await self._generate_questions(raw_input, analysis)
 
         # Build structured task from analysis
         task = self._build_structured_task(raw_input, analysis, additional_context)
@@ -390,7 +390,7 @@ Focus on blocking and important questions first."""
 
         return task
 
-    def _analyze_input(
+    async def _analyze_input(
         self,
         raw_input: str,
         context: Optional[Dict[str, Any]] = None
@@ -408,7 +408,7 @@ Focus on blocking and important questions first."""
         ]
 
         try:
-            response = self.openai.chat_completion(
+            response = await self.openai.chat_completion(
                 agent_type="reprompter",
                 messages=messages,
                 temperature=0.3
@@ -494,7 +494,7 @@ Focus on blocking and important questions first."""
         analysis['extracted'] = extracted
         return analysis
 
-    def _generate_questions(
+    async def _generate_questions(
         self,
         raw_input: str,
         analysis: Dict[str, Any]
@@ -521,7 +521,7 @@ Focus on blocking and important questions first."""
         ]
 
         try:
-            response = self.openai.chat_completion(
+            response = await self.openai.chat_completion(
                 agent_type="reprompter",
                 messages=messages,
                 temperature=0.4

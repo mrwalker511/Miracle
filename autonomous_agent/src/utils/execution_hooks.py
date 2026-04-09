@@ -98,7 +98,7 @@ class BlockDangerousCommandsHook(ExecutionHook):
         r'\brm\s+-rf\s+\*',             # rm -rf *
         r'>\s*/dev/sd',                 # Write to disk devices
         r'mkfs\.',                      # Format filesystems
-        r':(){:|:&};:',                 # Fork bomb
+        r':\(\)\s*\{\s*:\|:&\s*\};:',   # Fork bomb
 
         # System modification
         r'\bsudo\s+',                   # Sudo commands

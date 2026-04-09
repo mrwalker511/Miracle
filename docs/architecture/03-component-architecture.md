@@ -7,6 +7,7 @@
 ## 3.1 Orchestrator (`src/orchestrator.py`)
 
 **Responsibilities**:
+
 1. State machine management
 2. Iteration counting and circuit breaking
 3. Context management (shared state across agents)
@@ -89,6 +90,7 @@ context = {
 ### PlannerAgent
 
 **Responsibilities**:
+
 - Decompose high-level task into subtasks
 - Query memory for similar successful patterns
 - Identify potential challenges
@@ -119,6 +121,7 @@ Create an implementation plan.
 ```
 
 **Memory Integration**:
+
 - Embeds task description
 - Searches vector DB for similar past tasks (similarity > 0.7)
 - Includes top 3 similar patterns in prompt context
@@ -126,6 +129,7 @@ Create an implementation plan.
 ### CoderAgent
 
 **Responsibilities**:
+
 - Generate code based on plan and feedback
 - Use function calling to create files
 - Scaffold project structure (if needed)
@@ -157,6 +161,7 @@ The system is language-agnostic and can support any language by providing the ap
 ### TesterAgent
 
 **Responsibilities**:
+
 - Generate comprehensive tests (unit + edge cases)
 - Use property-based testing (hypothesis for Python)
 - Execute tests in Docker sandbox
@@ -182,6 +187,7 @@ def test_{function_name}_properties(a, b):
 ```
 
 **Test Execution**:
+
 1. Generate tests (LLM)
 2. Write test files to workspace
 3. Spin up Docker container
@@ -194,6 +200,7 @@ def test_{function_name}_properties(a, b):
 ### ReflectorAgent
 
 **Responsibilities**:
+
 - Analyze test failures (not just symptoms, root causes)
 - Query memory for similar past failures
 - Generate fix hypothesis
@@ -229,6 +236,7 @@ def test_{function_name}_properties(a, b):
 ## 3.3 LLM Interface Layer
 
 **Responsibilities**:
+
 - Abstract OpenAI API calls
 - Handle retries with exponential backoff
 - Track token usage

@@ -163,7 +163,7 @@ async def _run_async(
                 min_clarity_score=7,
             )
 
-            structured_task, questions = reprompter.process(task)
+            structured_task, questions = await reprompter.process(task)
 
             # Handle clarifying questions
             if questions:

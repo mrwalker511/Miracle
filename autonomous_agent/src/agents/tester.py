@@ -55,7 +55,7 @@ class TesterAgent(BaseAgent):
             }
 
         test_file = test_generation_result["test_file"]
-        test_results = self._execute_tests(workspace, test_file, language)
+        test_results = await self._execute_tests(workspace, test_file, language)
 
         self.logger.info(
             "testing_completed",
@@ -302,7 +302,7 @@ class TesterAgent(BaseAgent):
         test_path.write_text(test_content, encoding="utf-8")
         return test_file
 
-    def _execute_tests(self, workspace: Path, test_file: str, language: str) -> Dict[str, Any]:
+    async def _execute_tests(self, workspace: Path, test_file: str, language: str) -> Dict[str, Any]:
         if language in {"node", "javascript", "js"}:
-            return self.sandbox.run_node_tests(workspace=workspace, test_file=test_file)
-        return self.sandbox.run_python_tests(workspace=workspace, test_file=test_file)
+            return await self.sandbox.run_node_tests(workspace=workspace, test_file=test_file)
+        return await self.sandbox.run_python_tests(workspace=workspace, test_file=test_file)

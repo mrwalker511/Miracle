@@ -11,6 +11,7 @@ Enhanced with execution hooks for safety guardrails:
 
 from __future__ import annotations
 
+import asyncio
 import re
 import subprocess
 from pathlib import Path
@@ -70,21 +71,21 @@ class SandboxManager:
                 self.logger.warning("docker_unavailable_falling_back_to_local", error=str(e))
                 self._docker = None
 
-    def run_python_tests(self, *, workspace: Path, test_file: str) -> Dict[str, Any]:
-        return self._run_tests(
+    async def run_python_tests(self, *, workspace: Path, test_file: str) -> Dict[str, Any]:
+        return await self._run_tests(
             language="python",
             workspace=workspace,
             test_file=test_file,
         )
 
-    def run_node_tests(self, *, workspace: Path, test_file: Optional[str] = None) -> Dict[str, Any]:
-        return self._run_tests(
+    async def run_node_tests(self, *, workspace: Path, test_file: Optional[str] = None) -> Dict[str, Any]:
+        return await self._run_tests(
             language="node",
             workspace=workspace,
             test_file=test_file,
         )
 
-    def _run_tests(
+    async def _run_tests(
         self,
         *,
         language: str,
@@ -107,41 +108,41 @@ class SandboxManager:
                     "test_results": {},
                 }
             cmd = ["python", "-m", "pytest", test_file, "-q", "--tb=short"]
-            return self._run_command_and_parse_pytest(workspace, cmd, test_file)
+            return await self._run_command_and_parse_pytest(workspace, cmd, test_file)
 
         if language in {"node", "javascript", "js", "typescript", "ts"}:
             if test_file:
                 cmd = ["node", "--test", test_file]
             else:
                 cmd = ["node", "--test"]
-            return self._run_command_and_parse_node_test(workspace, cmd, test_file)
+            return await self._run_command_and_parse_node_test(workspace, cmd, test_file)
 
         if language == "java":
-            return self._run_java_tests(workspace, test_file)
+            return await self._run_java_tests(workspace, test_file)
 
         if language == "csharp":
-            return self._run_csharp_tests(workspace, test_file)
+            return await self._run_csharp_tests(workspace, test_file)
 
         if language == "go":
-            return self._run_go_tests(workspace, test_file)
+            return await self._run_go_tests(workspace, test_file)
 
         if language == "rust":
-            return self._run_rust_tests(workspace, test_file)
+            return await self._run_rust_tests(workspace, test_file)
 
         if language == "ruby":
-            return self._run_ruby_tests(workspace, test_file)
+            return await self._run_ruby_tests(workspace, test_file)
 
         if language == "php":
-            return self._run_php_tests(workspace, test_file)
+            return await self._run_php_tests(workspace, test_file)
 
         if language == "swift":
-            return self._run_swift_tests(workspace, test_file)
+            return await self._run_swift_tests(workspace, test_file)
 
         if language == "kotlin":
-            return self._run_kotlin_tests(workspace, test_file)
+            return await self._run_kotlin_tests(workspace, test_file)
 
         if language == "elixir":
-            return self._run_elixir_tests(workspace, test_file)
+            return await self._run_elixir_tests(workspace, test_file)
 
         return {
             "passed": False,
@@ -149,7 +150,7 @@ class SandboxManager:
             "test_results": {},
         }
 
-    def _run_command(self, *, workspace: Path, command: List[str]) -> subprocess.CompletedProcess:
+    async def _run_command(self, *, workspace: Path, command: List[str]) -> subprocess.CompletedProcess:
         # Execute pre-execution hooks
         command_str = " ".join(command)
         hook_context = HookContext(
@@ -220,7 +221,8 @@ class SandboxManager:
                 )
                 return self._execute_post_hooks(completed, workspace)
 
-        completed = subprocess.run(
+        completed = await asyncio.to_thread(
+            subprocess.run,
             command,
             cwd=workspace,
             capture_output=True,
@@ -277,14 +279,14 @@ class SandboxManager:
         self._docker_capabilities[image] = ok
         return ok
 
-    def _run_command_and_parse_pytest(
+    async def _run_command_and_parse_pytest(
         self,
         workspace: Path,
         command: List[str],
         test_file: str,
     ) -> Dict[str, Any]:
         try:
-            result = self._run_command(workspace=workspace, command=command)
+            result = await self._run_command(workspace=workspace, command=command)
         except subprocess.TimeoutExpired:
             return {
                 "passed": False,
@@ -315,14 +317,14 @@ class SandboxManager:
             "test_results": {"raw_output": output, "summary": summary},
         }
 
-    def _run_command_and_parse_node_test(
+    async def _run_command_and_parse_node_test(
         self,
         workspace: Path,
         command: List[str],
         test_file: Optional[str],
     ) -> Dict[str, Any]:
         try:
-            result = self._run_command(workspace=workspace, command=command)
+            result = await self._run_command(workspace=workspace, command=command)
         except subprocess.TimeoutExpired:
             return {
                 "passed": False,
@@ -377,11 +379,13 @@ class SandboxManager:
 
         return counts
 
-    def _run_java_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+    async def _run_java_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
         """Run Java tests using Gradle."""
         try:
             # Check if gradle is available
-            result = subprocess.run(["gradle", "--version"], capture_output=True, text=True, cwd=workspace)
+            result = await asyncio.to_thread(
+                subprocess.run, ["gradle", "--version"], capture_output=True, text=True, cwd=workspace
+            )
             if result.returncode != 0:
                 return {
                     "passed": False,
@@ -390,7 +394,9 @@ class SandboxManager:
                 }
             
             # Run tests using gradle
-            result = subprocess.run(["gradle", "test"], capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            result = await asyncio.to_thread(
+                subprocess.run, ["gradle", "test"], capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout
+            )
             
             return {
                 "passed": result.returncode == 0,
@@ -415,11 +421,13 @@ class SandboxManager:
                 "test_results": {},
             }
 
-    def _run_csharp_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+    async def _run_csharp_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
         """Run C# tests using dotnet."""
         try:
             # Check if dotnet is available
-            result = subprocess.run(["dotnet", "--version"], capture_output=True, text=True, cwd=workspace)
+            result = await asyncio.to_thread(
+                subprocess.run, ["dotnet", "--version"], capture_output=True, text=True, cwd=workspace
+            )
             if result.returncode != 0:
                 return {
                     "passed": False,
@@ -428,7 +436,9 @@ class SandboxManager:
                 }
             
             # Run tests using dotnet
-            result = subprocess.run(["dotnet", "test"], capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            result = await asyncio.to_thread(
+                subprocess.run, ["dotnet", "test"], capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout
+            )
             
             return {
                 "passed": result.returncode == 0,
@@ -453,11 +463,13 @@ class SandboxManager:
                 "test_results": {},
             }
 
-    def _run_go_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+    async def _run_go_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
         """Run Go tests."""
         try:
             cmd = ["go", "test", "./..."]
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            result = await asyncio.to_thread(
+                subprocess.run, cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout
+            )
             
             return {
                 "passed": result.returncode == 0,
@@ -482,11 +494,13 @@ class SandboxManager:
                 "test_results": {},
             }
 
-    def _run_rust_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+    async def _run_rust_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
         """Run Rust tests."""
         try:
             cmd = ["cargo", "test"]
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            result = await asyncio.to_thread(
+                subprocess.run, cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout
+            )
             
             return {
                 "passed": result.returncode == 0,
@@ -511,17 +525,21 @@ class SandboxManager:
                 "test_results": {},
             }
 
-    def _run_ruby_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+    async def _run_ruby_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
         """Run Ruby tests."""
         try:
             # Try rspec first, then minitest
             cmd = ["bundle", "exec", "rspec"]
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            result = await asyncio.to_thread(
+                subprocess.run, cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout
+            )
             
             if result.returncode != 0:
                 # Try minitest
                 cmd = ["ruby", "-Ilib:test", "-e", "require 'minitest/autorun'"]
-                result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+                result = await asyncio.to_thread(
+                    subprocess.run, cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout
+                )
             
             return {
                 "passed": result.returncode == 0,
@@ -546,11 +564,13 @@ class SandboxManager:
                 "test_results": {},
             }
 
-    def _run_php_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+    async def _run_php_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
         """Run PHP tests using PHPUnit."""
         try:
             cmd = ["php", "vendor/bin/phpunit"]
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            result = await asyncio.to_thread(
+                subprocess.run, cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout
+            )
             
             return {
                 "passed": result.returncode == 0,
@@ -575,11 +595,13 @@ class SandboxManager:
                 "test_results": {},
             }
 
-    def _run_swift_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+    async def _run_swift_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
         """Run Swift tests."""
         try:
             cmd = ["swift", "test"]
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            result = await asyncio.to_thread(
+                subprocess.run, cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout
+            )
             
             return {
                 "passed": result.returncode == 0,
@@ -604,11 +626,13 @@ class SandboxManager:
                 "test_results": {},
             }
 
-    def _run_kotlin_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+    async def _run_kotlin_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
         """Run Kotlin tests using Gradle."""
         try:
             # Check if gradle is available
-            result = subprocess.run(["gradle", "--version"], capture_output=True, text=True, cwd=workspace)
+            result = await asyncio.to_thread(
+                subprocess.run, ["gradle", "--version"], capture_output=True, text=True, cwd=workspace
+            )
             if result.returncode != 0:
                 return {
                     "passed": False,
@@ -617,7 +641,9 @@ class SandboxManager:
                 }
             
             # Run tests using gradle
-            result = subprocess.run(["gradle", "test"], capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            result = await asyncio.to_thread(
+                subprocess.run, ["gradle", "test"], capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout
+            )
             
             return {
                 "passed": result.returncode == 0,
@@ -642,11 +668,13 @@ class SandboxManager:
                 "test_results": {},
             }
 
-    def _run_elixir_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
+    async def _run_elixir_tests(self, workspace: Path, test_file: Optional[str]) -> Dict[str, Any]:
         """Run Elixir tests using mix."""
         try:
             cmd = ["mix", "test"]
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout)
+            result = await asyncio.to_thread(
+                subprocess.run, cmd, capture_output=True, text=True, cwd=workspace, timeout=self.limits.execution_timeout
+            )
             
             return {
                 "passed": result.returncode == 0,

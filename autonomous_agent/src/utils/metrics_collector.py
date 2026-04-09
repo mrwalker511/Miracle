@@ -16,7 +16,7 @@ class MetricsCollector:
         self.logger = get_logger("metrics_collector")
         self._token_baseline = openai_client.get_total_tokens_used()
 
-    def start_iteration(self):
+    async def start_iteration(self):
         self._token_baseline = self.openai.get_total_tokens_used()
 
     async def record_iteration_tokens(self, *, task_id: UUID, iteration: int):
