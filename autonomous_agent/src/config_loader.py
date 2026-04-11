@@ -105,7 +105,32 @@ class ConfigLoader:
                 print(f"Warning: Configuration file {filename} not found, using defaults")
                 configs[key] = {}
 
+        self.validate_configs(configs)
         return configs
+
+    def validate_configs(self, configs: Dict[str, Any]):
+        """Validate critical configuration structures.
+        
+        Args:
+            configs: The full configuration dictionary.
+            
+        Raises:
+            ValueError: If a required configuration property is missing.
+        """
+        if 'database' not in configs or not configs['database']:
+            raise ValueError("Missing 'database' configuration. Check config/database.yaml")
+            
+        required_db_keys = ['host', 'port', 'name', 'user', 'password']
+        for k in required_db_keys:
+            if k not in configs['database']:
+                raise ValueError(f"Missing required database config: '{k}'")
+                
+        if 'openai' not in configs or not configs['openai']:
+            raise ValueError("Missing 'openai' configuration. Check config/openai.yaml")
+            
+        # Optional: check if models are defined, though it might fallback to defaults
+        if 'models' not in configs['openai']:
+            configs['openai']['models'] = {}
 
     def get(self, config_name: str, *keys: str, default: Any = None) -> Any:
         """Get a specific configuration value using dot notation.

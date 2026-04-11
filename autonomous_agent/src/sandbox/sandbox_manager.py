@@ -181,14 +181,26 @@ class SandboxManager:
                 stderr="Command blocked by safety hook",
             )
 
-        # Check if hook requires approval (for now, log and continue)
+        # Check if hook requires approval
         if hook_result == HookResult.REQUIRE_APPROVAL:
             self.logger.warning(
                 "command_requires_approval",
                 command=command_str[:100],
             )
-            # In a full implementation, this would pause for user approval
-            # For now, we continue but log the warning
+            from src.ui.approval_prompt import ApprovalPrompt
+            prompt = ApprovalPrompt()
+            approved = prompt.request(
+                approval_type="Command Execution",
+                details={"command": command_str, "workspace": str(workspace)}
+            )
+            if not approved:
+                self.logger.error("command_rejected_by_user", command=command_str[:100])
+                return subprocess.CompletedProcess(
+                    args=command,
+                    returncode=1,
+                    stdout="",
+                    stderr="Command execution rejected by user.",
+                )
 
         self.logger.info(
             "sandbox_command_start",

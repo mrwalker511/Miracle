@@ -360,5 +360,180 @@ def setup():
     console.print("\nSetup instructions displayed")
 
 
+@cli.command()
+@click.argument('task_id')
+@click.option("--max-iterations", "-m", default=15, help="Maximum iterations")
+def resume(task_id: str, max_iterations: int):
+    """Resume an interrupted task."""
+    asyncio.run(_resume_async(task_id, max_iterations))
+
+async def _resume_async(task_id: str, max_iterations: int):
+    try:
+        config_loader = get_config_loader()
+        configs = config_loader.load_all_configs()
+        setup_logging(configs.get("settings", {}).get("logging", {}))
+        db_manager = DatabaseManager(configs)
+        
+        query = "SELECT task_id, description, goal, metadata, total_iterations, status FROM tasks WHERE task_id = %s"
+        tasks = await db_manager.execute_query(query, (task_id,))
+        if not tasks:
+            console.print(f"[red]Task {task_id} not found.[/red]")
+            return
+            
+        task = tasks[0]
+        if task['status'] in ('success', 'failed'):
+            console.print(f"[yellow]Task {task_id} is already completed (status: {task['status']}).[/yellow]")
+            return
+            
+        console.print(f"\n[green]Resuming Task:[/green] {task['description']}")
+        
+        # We need a workspace and state. For now, since StateSaver requires workspace path,
+        # we'll use the workspace_root from configs and task metadata.
+        workspace_root = Path(configs.get('settings', {}).get('sandbox', {}).get('workspace_root', './sandbox/workspace'))
+        if isinstance(task['metadata'], str):
+            import json
+            metadata = json.loads(task['metadata'])
+        else:
+            metadata = task['metadata'] or {}
+            
+        # Initialization
+        openai_client = OpenAIClient(configs)
+        vector_store = VectorStore(db_manager, openai_client)
+        
+        orchestrator = Orchestrator(
+            task_id=task['task_id'],
+            task_description=task['description'],
+            goal=task['goal'],
+            config=configs,
+            db_manager=db_manager,
+            vector_store=vector_store,
+            openai_client=openai_client,
+            max_iterations=max_iterations,
+            problem_type=metadata.get('problem_type', 'general'),
+            language=metadata.get('language', 'python')
+        )
+        
+        # Load checkpoint context if exists
+        state_saver = StateSaver()
+        # Find which workspace was used. If task has code_files generated in metadata or last iteration... We do simple lookup.
+        # Actually simplest to just start from db iteration state.
+        last_iter_q = "SELECT iteration_number, phase, code_snapshot, test_code, test_results, reflection, hypothesis FROM iterations WHERE task_id = %s ORDER BY iteration_number DESC LIMIT 1"
+        iterations = await db_manager.execute_query(last_iter_q, (task_id,))
+        if iterations:
+            last_iter = iterations[0]
+            orchestrator.current_iteration = last_iter['iteration_number']
+            
+            # Map phase to state
+            phase_map = {
+                'planning': OrchestrationState.PLANNING,
+                'coding': OrchestrationState.CODING,
+                'testing': OrchestrationState.TESTING,
+                'reflecting': OrchestrationState.REFLECTING
+            }
+            orchestrator.state = phase_map.get(last_iter['phase'], OrchestrationState.PLANNING)
+            
+            # Restore context fragments
+            orchestrator.context['iteration'] = orchestrator.current_iteration
+            if last_iter['code_snapshot']:
+                # Basic restoration, can't map back perfectly to multiple files unless stored in json
+                pass
+            if last_iter['test_results']:
+                orchestrator.context['test_results'] = last_iter['test_results'] if not isinstance(last_iter['test_results'], str) else json.loads(last_iter['test_results'])
+            if last_iter['reflection'] or last_iter['hypothesis']:
+                orchestrator.context['previous_errors'] = last_iter['hypothesis']
+                
+            console.print(f"[dim]Continuing from iteration {orchestrator.current_iteration} (phase: {last_iter['phase']})[/dim]\n")
+        else:
+            console.print("[dim]No previous iterations found. Starting from beginning.[/dim]\n")
+
+        result = await orchestrator.run()
+
+        if result.get("success"):
+            console.print(Panel.fit(f"[bold green]TASK COMPLETED[/bold green]\nIterations: {result.get('iterations')}"))
+        else:
+            console.print(Panel.fit(f"[bold red]TASK FAILED[/bold red]\nStatus: {result.get('status')}"))
+            
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+    finally:
+        try:
+            await db_manager.close()
+        except:
+            pass
+
+@cli.command()
+def metrics():
+    """View system performance metrics."""
+    asyncio.run(_metrics_async())
+
+async def _metrics_async():
+    try:
+        config_loader = get_config_loader()
+        configs = config_loader.load_all_configs()
+        db_manager = DatabaseManager(configs)
+
+        query = "SELECT problem_type, total_tasks, successful, success_rate, avg_iterations FROM success_rate_by_type"
+
+        metrics_data = await db_manager.execute_query(query)
+        if not metrics_data:
+            console.print("[yellow]No metrics found. Complete a task first.[/yellow]")
+            return
+
+        from rich.table import Table
+        table = Table(title="System Performance Metrics")
+        table.add_column("Problem Type", style="cyan")
+        table.add_column("Total Tasks", justify="right")
+        table.add_column("Successful", justify="right", style="green")
+        table.add_column("Success Rate", justify="right")
+        table.add_column("Avg Iterations", justify="right")
+        
+        for row in metrics_data:
+            rate = float(row['success_rate']) * 100
+            table.add_row(
+                str(row['problem_type']),
+                str(row['total_tasks']),
+                str(row['successful']),
+                f"{rate:.1f}%",
+                str(row['avg_iterations'])
+            )
+
+        console.print(table)
+        
+    except Exception as e:
+        console.print(f"[red]Error fetching metrics: {e}[/red]")
+    finally:
+        try:
+            await db_manager.close()
+        except:
+            pass
+
+@cli.command()
+def config():
+    """View current active configuration."""
+    config_loader = get_config_loader()
+    configs = config_loader.load_all_configs()
+    
+    from rich.tree import Tree
+    tree = Tree("[bold cyan]Active Configuration[/bold cyan]")
+    
+    for section, values in configs.items():
+        section_node = tree.add(f"[green]{section}[/green]")
+        if isinstance(values, dict):
+            for k, v in values.items():
+                if isinstance(v, dict):
+                    sub_node = section_node.add(f"[yellow]{k}[/yellow]")
+                    for sub_k, sub_v in v.items():
+                        # Mask sensitive values
+                        if any(sensitive in sub_k.lower() for sensitive in ['key', 'secret', 'password']):
+                            sub_v = "********"
+                        sub_node.add(f"{sub_k}: {sub_v}")
+                else:
+                    if any(sensitive in k.lower() for sensitive in ['key', 'secret', 'password']):
+                        v = "********"
+                    section_node.add(f"{k}: {v}")
+    
+    console.print(tree)
+
+
 if __name__ == "__main__":
     cli()

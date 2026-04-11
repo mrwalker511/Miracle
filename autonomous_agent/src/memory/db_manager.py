@@ -11,6 +11,8 @@ from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 from pgvector.psycopg import register_vector_async
 
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
 from src.ui.logger import get_logger
 
 
@@ -46,6 +48,11 @@ class DatabaseManager:
 
         self.logger.info("database_pool_created", database=self.config['name'])
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type((psycopg.OperationalError, psycopg.InterfaceError))
+    )
     async def execute_query(
         self,
         query: str,

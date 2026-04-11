@@ -297,7 +297,21 @@ class Orchestrator:
                     state=self.state.value,
                     error=str(e)
                 )
-                # Continue to next iteration
+                
+                # Check for critical external API errors or exhaustion
+                import openai
+                from tenacity import RetryError
+                is_api_error = isinstance(e, (openai.APIError, RetryError))
+                if not is_api_error and hasattr(e, '__cause__') and isinstance(e.__cause__, openai.APIError):
+                    is_api_error = True
+                    
+                if is_api_error:
+                    self.logger.warning("api_limit_exhausted", message="Halting execution and saving checkpoint to prevent runaway failures.")
+                    self.state = OrchestrationState.PAUSED
+                    await self._save_checkpoint()
+                    break
+
+                # Continue to next iteration for local transient logic errors
                 continue
 
             # Log iteration completion
@@ -440,6 +454,17 @@ class Orchestrator:
             passed=passed,
             iteration=self.current_iteration,
         )
+
+        from src.testing.coverage_analyzer import parse_pytest_cov_output
+        from rich.console import Console
+        
+        raw_output = result.get('test_results', {}).get('raw_output', '')
+        cov_data = parse_pytest_cov_output(raw_output)
+        if 'total_coverage_percent' in cov_data:
+            cov_pct = cov_data['total_coverage_percent']
+            Console().print(f"[cyan]Test Coverage:[/cyan] {cov_pct}%")
+            self.context['coverage_percent'] = cov_pct
+            await self.db.store_metric(self.task_id, 'coverage_percent', float(cov_pct))
 
         self.logger.info(
             "testing_phase_completed",
