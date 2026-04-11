@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
 
-from src.llm.openai_client import OpenAIClient
+from src.llm.client import LLMClient
 from src.ui.logger import get_logger
 
 
@@ -246,18 +246,18 @@ Focus on blocking and important questions first."""
 
     def __init__(
         self,
-        openai_client: OpenAIClient,
+        llm_client: LLMClient,
         auto_fill_defaults: bool = True,
         min_clarity_score: int = 7,
     ):
         """Initialize reprompter.
 
         Args:
-            openai_client: OpenAI client for LLM calls
+            llm_client: OpenAI client for LLM calls
             auto_fill_defaults: Whether to auto-fill with defaults
             min_clarity_score: Minimum clarity score before asking questions
         """
-        self.openai = openai_client
+        self.openai = llm_client
         self.auto_fill_defaults = auto_fill_defaults
         self.min_clarity_score = min_clarity_score
         self.logger = get_logger('reprompter')

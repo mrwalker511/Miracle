@@ -4,17 +4,17 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from src.llm.openai_client import OpenAIClient
+from src.llm.client import LLMClient
 from src.memory.db_manager import DatabaseManager
 from src.ui.logger import get_logger
 
 
 class MetricsCollector:
-    def __init__(self, *, db: DatabaseManager, openai_client: OpenAIClient):
+    def __init__(self, *, db: DatabaseManager, llm_client: LLMClient):
         self.db = db
-        self.openai = openai_client
+        self.openai = llm_client
         self.logger = get_logger("metrics_collector")
-        self._token_baseline = openai_client.get_total_tokens_used()
+        self._token_baseline = llm_client.get_total_tokens_used()
 
     async def start_iteration(self):
         self._token_baseline = self.openai.get_total_tokens_used()

@@ -4,22 +4,22 @@ from typing import List, Dict, Any, Optional
 from uuid import UUID
 
 from src.memory.db_manager import DatabaseManager
-from src.llm.openai_client import OpenAIClient
+from src.llm.client import LLMClient
 from src.ui.logger import get_logger
 
 
 class VectorStore:
     """Manages vector embeddings and similarity search."""
 
-    def __init__(self, db_manager: DatabaseManager, openai_client: OpenAIClient):
+    def __init__(self, db_manager: DatabaseManager, llm_client: LLMClient):
         """Initialize vector store.
 
         Args:
             db_manager: Database manager instance
-            openai_client: OpenAI client for embeddings
+            llm_client: OpenAI client for embeddings
         """
         self.db = db_manager
-        self.openai = openai_client
+        self.openai = llm_client
         self.logger = get_logger('vector_store')
 
     async def find_similar_failures(

@@ -1,9 +1,9 @@
-"""OpenAI API client with flexible model support and retry logic."""
+"""Generic LLM client using LiteLLM for flexible provider support and retry logic."""
 
 import os
 from typing import Any, Dict, List, Optional
 
-import openai
+import litellm
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -13,35 +13,38 @@ from tenacity import (
 
 from src.ui.logger import get_logger
 
+# Optional: drop litellm diagnostics spam
+litellm.suppress_debug_info = True
 
-class OpenAIClient:
-    """Flexible OpenAI client supporting any model via configuration."""
+
+class LLMClient:
+    """Flexible LLM client supporting arbitrary providers via LiteLLM."""
 
     def __init__(self, config: Dict[str, Any]):
-        """Initialize the OpenAI client.
+        """Initialize the LLM client.
 
         Args:
-            config: OpenAI configuration dictionary from config/openai.yaml
+            config: Full configuration dictionary containing the 'llm' key
         """
-        self.config = config['openai']
-        self.api_key = os.getenv("OPENAI_API_KEY") or self.config.get('api_key')
-        self.organization = os.getenv("OPENAI_ORG_ID") or self.config.get('organization')
+        self.config = config.get('llm', {})
+        self.api_key = os.getenv("OPENAI_API_KEY") or self.config.get('api_key', 'sk-dummy')
+        self.base_url = os.getenv("LLM_BASE_URL") or self.config.get('base_url')
 
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment or config")
-
-        self.client = openai.AsyncOpenAI(
-            api_key=self.api_key,
-            organization=self.organization
-        )
+        # Since Litellm abstracts providers, it doesn't strictly need API keys for local endpoints.
+        # But we'll export it for litellm's internal parsing if provided.
+        if self.api_key:
+            os.environ['OPENAI_API_KEY'] = self.api_key
 
         self.models = self.config.get('models', {})
         self.temperature = self.config.get('temperature', 0.2)
         self.max_tokens = self.config.get('max_tokens', 4096)
-        self.fallback_enabled = config.get('fallback', {}).get('enabled', False)
-        self.fallback_sequence = config.get('fallback', {}).get('sequence', [])
+        
+        # Parent fallback block if mapped
+        fallback_cfg = config.get('fallback', {})
+        self.fallback_enabled = fallback_cfg.get('enabled', False)
+        self.fallback_sequence = fallback_cfg.get('sequence', [])
 
-        self.logger = get_logger('openai_client')
+        self.logger = get_logger('llm_client')
         self.total_tokens_used = 0
 
     def get_model_for_agent(self, agent_type: str) -> str:
@@ -51,17 +54,17 @@ class OpenAIClient:
             agent_type: Agent type ('planner', 'coder', 'tester', 'reflector')
 
         Returns:
-            Model name (e.g., 'gpt-4-turbo-preview')
+            Model string in LiteLLM generic format (e.g., 'openai/gpt-4-turbo', 'ollama/llama3')
         """
-        return self.models.get(agent_type, "gpt-4-turbo-preview")
+        return self.models.get(agent_type, "openai/gpt-4-turbo-preview")
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         retry=retry_if_exception_type((
-            openai.RateLimitError,
-            openai.APITimeoutError,
-            openai.APIConnectionError
+            litellm.exceptions.RateLimitError,
+            litellm.exceptions.Timeout,
+            litellm.exceptions.APIConnectionError
         ))
     )
     async def chat_completion(
@@ -71,7 +74,7 @@ class OpenAIClient:
         tools: Optional[List[Dict[str, Any]]] = None,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None
-    ) -> openai.types.chat.ChatCompletion:
+    ) -> Any:
         """Generate a chat completion with retry logic.
 
         Args:
@@ -82,10 +85,7 @@ class OpenAIClient:
             max_tokens: Optional max_tokens override
 
         Returns:
-            OpenAI ChatCompletion response
-
-        Raises:
-            openai.OpenAIError: If all retries fail
+            LiteLLM ChatCompletion response (OpenAI schema compatible)
         """
         model = self.get_model_for_agent(agent_type)
 
@@ -95,6 +95,9 @@ class OpenAIClient:
             "temperature": temperature or self.temperature,
             "max_tokens": max_tokens or self.max_tokens,
         }
+
+        if self.base_url:
+            params["api_base"] = self.base_url
 
         if tools:
             params["tools"] = tools
@@ -109,13 +112,13 @@ class OpenAIClient:
         )
 
         try:
-            response = await self.client.chat.completions.create(**params)
-            self._log_token_usage(agent_type, response.usage)
+            response = await litellm.acompletion(**params)
+            self._log_token_usage(agent_type, getattr(response, 'usage', None))
             return response
 
-        except (openai.RateLimitError, openai.APITimeoutError, openai.APIConnectionError) as e:
+        except (litellm.exceptions.RateLimitError, litellm.exceptions.Timeout, litellm.exceptions.APIConnectionError) as e:
             self.logger.warning(
-                "openai_api_error",
+                "llm_api_timeout_or_limit",
                 error_type=type(e).__name__,
                 message=str(e),
                 agent_type=agent_type
@@ -126,6 +129,8 @@ class OpenAIClient:
             # Try fallback models if configured
             if self.fallback_enabled and self.fallback_sequence:
                 return await self._try_fallback_models(params, agent_type, messages, tools)
+            
+            self.logger.error("llm_api_critical_failure", error=str(e))
             raise
 
     async def _try_fallback_models(
@@ -134,7 +139,7 @@ class OpenAIClient:
         agent_type: str,
         messages: List[Dict[str, str]],
         tools: Optional[List[Dict[str, Any]]]
-    ) -> openai.types.chat.ChatCompletion:
+    ) -> Any:
         """Try fallback models in sequence.
 
         Args:
@@ -144,23 +149,24 @@ class OpenAIClient:
             tools: Optional tools
 
         Returns:
-            OpenAI ChatCompletion response
+            ChatCompletion response
 
         Raises:
             Exception: If all fallback models fail
         """
+        original_model = params.get('model')
         for fallback_model in self.fallback_sequence:
             try:
                 self.logger.info(
                     "trying_fallback_model",
-                    original_model=params['model'],
+                    original_model=original_model,
                     fallback_model=fallback_model,
                     agent_type=agent_type
                 )
 
                 params['model'] = fallback_model
-                response = await self.client.chat.completions.create(**params)
-                self._log_token_usage(agent_type, response.usage)
+                response = await litellm.acompletion(**params)
+                self._log_token_usage(agent_type, getattr(response, 'usage', None))
                 return response
 
             except Exception as e:
@@ -177,9 +183,9 @@ class OpenAIClient:
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         retry=retry_if_exception_type((
-            openai.RateLimitError,
-            openai.APITimeoutError,
-            openai.APIConnectionError
+            litellm.exceptions.RateLimitError,
+            litellm.exceptions.Timeout,
+            litellm.exceptions.APIConnectionError
         ))
     )
     async def create_embedding(self, text: str) -> List[float]:
@@ -198,44 +204,47 @@ class OpenAIClient:
             model=model,
             text_length=len(text)
         )
+        
+        params = {"model": model, "input": [text]}
+        if self.base_url and not model.startswith('openai'):
+            # Specific behavior: Only forward custom api_base if local model, 
+            # or forward it broadly depending on litellm overrides.
+            params["api_base"] = self.base_url
 
-        response = await self.client.embeddings.create(
-            model=model,
-            input=text
-        )
+        response = await litellm.aembedding(**params)
 
         # Track token usage
         if hasattr(response, 'usage') and response.usage:
             self.total_tokens_used += response.usage.total_tokens
 
-        return response.data[0].embedding
+        return response.data[0]['embedding']
 
     def _log_token_usage(self, agent_type: str, usage: Any):
         """Log token usage from API response.
 
         Args:
             agent_type: Type of agent
-            usage: Usage object from OpenAI response
+            usage: Usage object from OpenAI/LiteLLM response
         """
         if usage:
-            tokens_used = usage.total_tokens
-            self.total_tokens_used += tokens_used
+            # handle both dot notation or dict format natively wrapped by litellm
+            total_tokens = getattr(usage, 'total_tokens', usage.get('total_tokens', 0) if isinstance(usage, dict) else 0)
+            prompt_tokens = getattr(usage, 'prompt_tokens', usage.get('prompt_tokens', 0) if isinstance(usage, dict) else 0)
+            completion_tokens = getattr(usage, 'completion_tokens', usage.get('completion_tokens', 0) if isinstance(usage, dict) else 0)
+            
+            self.total_tokens_used += total_tokens
 
             self.logger.info(
                 "token_usage",
                 agent_type=agent_type,
-                prompt_tokens=usage.prompt_tokens,
-                completion_tokens=usage.completion_tokens,
-                total_tokens=tokens_used,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=total_tokens,
                 cumulative_tokens=self.total_tokens_used
             )
 
     def get_total_tokens_used(self) -> int:
-        """Get total tokens used in this session.
-
-        Returns:
-            Total token count
-        """
+        """Get total tokens used in this session."""
         return self.total_tokens_used
 
     def reset_token_counter(self):

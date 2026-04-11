@@ -93,7 +93,7 @@ class ConfigLoader:
         config_files = {
             'settings': 'settings.yaml',
             'database': 'database.yaml',
-            'openai': 'openai.yaml',
+            'llm': 'llm.yaml',
             'prompts': 'system_prompts.yaml',
             'safety': 'safety_rules.yaml'
         }
@@ -125,12 +125,12 @@ class ConfigLoader:
             if k not in configs['database']:
                 raise ValueError(f"Missing required database config: '{k}'")
                 
-        if 'openai' not in configs or not configs['openai']:
-            raise ValueError("Missing 'openai' configuration. Check config/openai.yaml")
+        if 'llm' not in configs or not configs['llm']:
+            raise ValueError("Missing 'llm' configuration. Check config/llm.yaml")
             
         # Optional: check if models are defined, though it might fallback to defaults
-        if 'models' not in configs['openai']:
-            configs['openai']['models'] = {}
+        if 'models' not in configs['llm']:
+            configs['llm']['models'] = {}
 
     def get(self, config_name: str, *keys: str, default: Any = None) -> Any:
         """Get a specific configuration value using dot notation.

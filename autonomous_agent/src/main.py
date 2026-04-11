@@ -21,7 +21,7 @@ from rich.prompt import Prompt, Confirm
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.config_loader import get_config_loader
-from src.llm.openai_client import OpenAIClient
+from src.llm.client import LLMClient
 from src.memory.db_manager import DatabaseManager
 from src.memory.vector_store import VectorStore
 from src.orchestrator import Orchestrator
@@ -142,9 +142,9 @@ async def _run_async(
 
     # Initialize components
     try:
-        openai_client = OpenAIClient(configs)
+        llm_client = LLMClient(configs)
         db_manager = DatabaseManager(configs)
-        vector_store = VectorStore(db_manager, openai_client)
+        vector_store = VectorStore(db_manager, llm_client)
     except Exception as e:
         console.print(f"[red]Error initializing components: {e}[/red]")
         logger.error("initialization_failed", error=str(e))
@@ -158,7 +158,7 @@ async def _run_async(
         try:
             console.print("\n[dim]Analyzing task for better structuring...[/dim]")
             reprompter = Reprompter(
-                openai_client=openai_client,
+                llm_client=llm_client,
                 auto_fill_defaults=True,
                 min_clarity_score=7,
             )
@@ -236,7 +236,7 @@ async def _run_async(
             config=configs,
             db_manager=db_manager,
             vector_store=vector_store,
-            openai_client=openai_client,
+            llm_client=llm_client,
             max_iterations=max_iterations,
             problem_type=problem_type,
             language=language,
@@ -397,8 +397,8 @@ async def _resume_async(task_id: str, max_iterations: int):
             metadata = task['metadata'] or {}
             
         # Initialization
-        openai_client = OpenAIClient(configs)
-        vector_store = VectorStore(db_manager, openai_client)
+        llm_client = LLMClient(configs)
+        vector_store = VectorStore(db_manager, llm_client)
         
         orchestrator = Orchestrator(
             task_id=task['task_id'],
@@ -407,7 +407,7 @@ async def _resume_async(task_id: str, max_iterations: int):
             config=configs,
             db_manager=db_manager,
             vector_store=vector_store,
-            openai_client=openai_client,
+            llm_client=llm_client,
             max_iterations=max_iterations,
             problem_type=metadata.get('problem_type', 'general'),
             language=metadata.get('language', 'python')

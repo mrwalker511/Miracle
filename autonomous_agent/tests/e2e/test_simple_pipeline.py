@@ -16,7 +16,7 @@ async def test_full_pipeline_execution():
     
     In a real CI context, this test should:
     1. Initialize a temporary / sandboxed SQLite database or Docker Postgres
-    2. Provide a mock for `openai_client.chat_completion` that returns a deterministic plan, code, and reflection
+    2. Provide a mock for `llm_client.chat_completion` that returns a deterministic plan, code, and reflection
     3. Assert the State advances correctly and finalizes with SUCCESS
     """
     assert True

@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from enum import Enum
 
 from src.agents.base_agent import BaseAgent
-from src.llm.openai_client import OpenAIClient
+from src.llm.client import LLMClient
 from src.memory.vector_store import VectorStore
 
 
@@ -197,12 +197,12 @@ Be thorough. Security vulnerabilities can be subtle. When in doubt, flag it."""
     def __init__(
         self,
         agent_type: str,
-        openai_client: OpenAIClient,
+        llm_client: LLMClient,
         vector_store: VectorStore,
         prompts: Dict[str, Any],
     ):
         """Initialize the security auditor agent."""
-        super().__init__(agent_type, openai_client, vector_store, prompts)
+        super().__init__(agent_type, llm_client, vector_store, prompts)
         self.system_prompt = self.AUDIT_SYSTEM_PROMPT
 
     async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:

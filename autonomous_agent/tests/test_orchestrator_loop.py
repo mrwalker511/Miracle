@@ -71,7 +71,7 @@ def make_orchestrator(max_iterations=10, enable_code_review=False, enable_securi
         config=CONFIG,
         db_manager=db,
         vector_store=MagicMock(),
-        openai_client=MagicMock(),
+        llm_client=MagicMock(),
         max_iterations=max_iterations,
         enable_code_review=enable_code_review,
         enable_security_audit=enable_security_audit,

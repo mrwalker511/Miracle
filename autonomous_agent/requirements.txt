@@ -2,8 +2,9 @@
 python-dotenv>=1.0.0
 pyyaml>=6.0.1
 
-# OpenAI (flexible model support)
+# OpenAI and LiteLLM (flexible model support)
 # Changed to >= to support litellm and other modern tools
+litellm>=1.34.0
 openai>=1.12.0
 
 # Database

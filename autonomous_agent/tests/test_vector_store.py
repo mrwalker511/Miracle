@@ -33,7 +33,7 @@ def mock_db():
 
 @pytest.fixture
 def mock_openai():
-    """Create a mock OpenAIClient."""
+    """Create a mock LLMClient."""
     client = MagicMock()
     client.create_embedding = AsyncMock(return_value=[0.1, 0.2, 0.3] * 512)
     return client

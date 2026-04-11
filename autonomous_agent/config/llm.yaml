@@ -1,11 +1,14 @@
-# autonomous_agent/config/openai.yaml
+# autonomous_agent/config/llm.yaml
+# We use LiteLLM strings format e.g. "openai/gpt-4" or "ollama/llama3"
 api_base: "http://localhost:8081/v1"
 default_model: "qwen3-8b"
 timeout: 60  # Local models can be slow; give them more time
 max_retries: 3
 
-openai:
-  api_key: ${OPENAI_API_KEY}  # From environment
+llm:
+  provider: "openai" # Not strictly required by litellm but conceptually useful
+  api_key: ${OPENAI_API_KEY:sk-dummy-1234}  # Fallback to dummy for local providers
+  base_url: ${LLM_BASE_URL:http://localhost:8081/v1} # Set endpoints easily
   organization: ${OPENAI_ORG_ID}  # Optional
 
   # Model selection - pointed at local Qwen 3 8B model via LocalAI

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from src.llm.openai_client import OpenAIClient
+from src.llm.client import LLMClient
 from src.memory.vector_store import VectorStore
 from src.ui.logger import get_logger
 
@@ -15,7 +15,7 @@ class BaseAgent(ABC):
     def __init__(
         self,
         agent_type: str,
-        openai_client: OpenAIClient,
+        llm_client: LLMClient,
         vector_store: VectorStore,
         prompts: Dict[str, Any]
     ):
@@ -23,12 +23,12 @@ class BaseAgent(ABC):
 
         Args:
             agent_type: Type of agent ('planner', 'coder', 'tester', 'reflector')
-            openai_client: OpenAI client instance
+            llm_client: OpenAI client instance
             vector_store: Vector store for memory
             prompts: System prompts from configuration
         """
         self.agent_type = agent_type
-        self.openai = openai_client
+        self.openai = llm_client
         self.vector_store = vector_store
         self.prompts = prompts.get(agent_type, {})
         self.logger = get_logger(agent_type)

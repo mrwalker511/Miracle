@@ -1,4 +1,4 @@
-"""Tests for OpenAI client.
+"""Tests for LiteLLM generic client.
 
 Covers:
 - Model selection per agent type
@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.llm.openai_client import OpenAIClient
+from src.llm.client import LLMClient
 
 
 # ---------------------------------------------------------------------------
@@ -20,14 +20,14 @@ from src.llm.openai_client import OpenAIClient
 # ---------------------------------------------------------------------------
 
 CONFIG = {
-    "openai": {
+    "llm": {
         "api_key": "test-api-key-12345",
-        "organization": None,
+        "base_url": "http://localhost:8081/v1",
         "models": {
-            "planner": "gpt-4-turbo-preview",
-            "coder": "gpt-4-turbo-preview",
-            "tester": "gpt-3.5-turbo",
-            "reflector": "gpt-4-turbo-preview",
+            "planner": "openai/gpt-4-turbo-preview",
+            "coder": "openai/gpt-4-turbo-preview",
+            "tester": "openai/gpt-3.5-turbo",
+            "reflector": "openai/gpt-4-turbo-preview",
             "embedding": "text-embedding-3-large",
         },
         "temperature": 0.2,
@@ -35,17 +35,16 @@ CONFIG = {
     },
     "fallback": {
         "enabled": True,
-        "sequence": ["gpt-3.5-turbo", "gpt-3.5-turbo-16k"],
+        "sequence": ["openai/gpt-3.5-turbo", "openai/gpt-3.5-turbo-16k"],
     },
 }
 
 
 @pytest.fixture
 def client():
-    """Create an OpenAIClient with mocked API key."""
+    """Create an LLMClient."""
     with patch.dict(os.environ, {"OPENAI_API_KEY": "test-api-key-12345"}):
-        with patch("src.llm.openai_client.openai.AsyncOpenAI"):
-            return OpenAIClient(CONFIG)
+        return LLMClient(CONFIG)
 
 
 # ---------------------------------------------------------------------------
@@ -56,14 +55,14 @@ class TestModelSelection:
     """get_model_for_agent retrieves correct model per agent type."""
 
     def test_planner_model(self, client):
-        assert client.get_model_for_agent("planner") == "gpt-4-turbo-preview"
+        assert client.get_model_for_agent("planner") == "openai/gpt-4-turbo-preview"
 
     def test_tester_model(self, client):
-        assert client.get_model_for_agent("tester") == "gpt-3.5-turbo"
+        assert client.get_model_for_agent("tester") == "openai/gpt-3.5-turbo"
 
     def test_unknown_agent_gets_default(self, client):
         model = client.get_model_for_agent("unknown_agent")
-        assert model == "gpt-4-turbo-preview"  # Default fallback
+        assert model == "openai/gpt-4-turbo-preview"  # Default fallback
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +92,12 @@ class TestTokenTracking:
         client._log_token_usage("coder", usage)
         assert client.get_total_tokens_used() == 200
 
+    def test_log_token_usage_handles_dict(self, client):
+        """LiteLLM sometimes passes dict-like usage objects."""
+        usage = {"total_tokens": 150, "prompt_tokens": 100, "completion_tokens": 50}
+        client._log_token_usage("tester", usage)
+        assert client.get_total_tokens_used() == 150
+
     def test_log_token_usage_handles_none(self, client):
         """None usage should not crash."""
         client._log_token_usage("planner", None)
@@ -104,10 +109,11 @@ class TestTokenTracking:
 # ---------------------------------------------------------------------------
 
 class TestChatCompletion:
-    """chat_completion delegates to AsyncOpenAI correctly."""
+    """chat_completion delegates to litellm.acompletion correctly."""
 
     @pytest.mark.asyncio
-    async def test_basic_completion(self, client):
+    @patch("src.llm.client.litellm.acompletion")
+    async def test_basic_completion(self, mock_acompletion, client):
         """Mocked chat completion returns expected structure."""
         mock_response = MagicMock()
         mock_response.usage = MagicMock()
@@ -115,7 +121,7 @@ class TestChatCompletion:
         mock_response.usage.prompt_tokens = 100
         mock_response.usage.completion_tokens = 50
 
-        client.client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_acompletion.return_value = mock_response
 
         response = await client.chat_completion(
             agent_type="planner",
@@ -126,27 +132,30 @@ class TestChatCompletion:
         assert client.get_total_tokens_used() == 150
 
     @pytest.mark.asyncio
-    async def test_completion_uses_correct_model(self, client):
+    @patch("src.llm.client.litellm.acompletion")
+    async def test_completion_uses_correct_model(self, mock_acompletion, client):
         """Model param matches what's configured for the agent type."""
         mock_response = MagicMock()
         mock_response.usage = None
 
-        client.client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_acompletion.return_value = mock_response
 
         await client.chat_completion(
             agent_type="tester",
             messages=[{"role": "user", "content": "test"}],
         )
 
-        call_kwargs = client.client.chat.completions.create.call_args[1]
-        assert call_kwargs["model"] == "gpt-3.5-turbo"
+        call_kwargs = mock_acompletion.call_args[1]
+        assert call_kwargs["model"] == "openai/gpt-3.5-turbo"
+        assert call_kwargs["api_base"] == "http://localhost:8081/v1"
 
     @pytest.mark.asyncio
-    async def test_tools_passed_through(self, client):
+    @patch("src.llm.client.litellm.acompletion")
+    async def test_tools_passed_through(self, mock_acompletion, client):
         mock_response = MagicMock()
         mock_response.usage = None
 
-        client.client.chat.completions.create = AsyncMock(return_value=mock_response)
+        mock_acompletion.return_value = mock_response
 
         tools = [{"type": "function", "function": {"name": "test_func"}}]
         await client.chat_completion(
@@ -155,7 +164,7 @@ class TestChatCompletion:
             tools=tools,
         )
 
-        call_kwargs = client.client.chat.completions.create.call_args[1]
+        call_kwargs = mock_acompletion.call_args[1]
         assert call_kwargs["tools"] == tools
         assert call_kwargs["tool_choice"] == "auto"
 
@@ -165,19 +174,18 @@ class TestChatCompletion:
 # ---------------------------------------------------------------------------
 
 class TestEmbedding:
-    """create_embedding delegates to the embeddings API."""
+    """create_embedding delegates to litellm.aembedding."""
 
     @pytest.mark.asyncio
-    async def test_embedding_returns_vector(self, client):
-        mock_data = MagicMock()
-        mock_data.embedding = [0.1, 0.2, 0.3]
-
+    @patch("src.llm.client.litellm.aembedding")
+    async def test_embedding_returns_vector(self, mock_aembedding, client):
         mock_response = MagicMock()
-        mock_response.data = [mock_data]
+        # litellm returns a dict standard structure for embeddings
+        mock_response.data = [{"embedding": [0.1, 0.2, 0.3]}]
         mock_response.usage = MagicMock()
         mock_response.usage.total_tokens = 10
 
-        client.client.embeddings.create = AsyncMock(return_value=mock_response)
+        mock_aembedding.return_value = mock_response
 
         result = await client.create_embedding("test text")
 
@@ -185,19 +193,17 @@ class TestEmbedding:
         assert client.get_total_tokens_used() == 10
 
     @pytest.mark.asyncio
-    async def test_embedding_uses_configured_model(self, client):
-        mock_data = MagicMock()
-        mock_data.embedding = [0.1]
-
+    @patch("src.llm.client.litellm.aembedding")
+    async def test_embedding_uses_configured_model(self, mock_aembedding, client):
         mock_response = MagicMock()
-        mock_response.data = [mock_data]
+        mock_response.data = [{"embedding": [0.1]}]
         mock_response.usage = None
 
-        client.client.embeddings.create = AsyncMock(return_value=mock_response)
+        mock_aembedding.return_value = mock_response
 
         await client.create_embedding("test text")
 
-        call_kwargs = client.client.embeddings.create.call_args[1]
+        call_kwargs = mock_aembedding.call_args[1]
         assert call_kwargs["model"] == "text-embedding-3-large"
 
 
@@ -209,7 +215,8 @@ class TestFallback:
     """Fallback model sequence is tried on primary failure."""
 
     @pytest.mark.asyncio
-    async def test_fallback_tried_on_failure(self, client):
+    @patch("src.llm.client.litellm.acompletion")
+    async def test_fallback_tried_on_failure(self, mock_acompletion, client):
         mock_response = MagicMock()
         mock_response.usage = MagicMock()
         mock_response.usage.total_tokens = 50
@@ -217,9 +224,7 @@ class TestFallback:
         mock_response.usage.completion_tokens = 20
 
         # First model fails, fallback succeeds
-        client.client.chat.completions.create = AsyncMock(
-            side_effect=[Exception("Model error"), mock_response]
-        )
+        mock_acompletion.side_effect = [Exception("Model error"), mock_response]
 
         response = await client.chat_completion(
             agent_type="planner",
@@ -228,13 +233,17 @@ class TestFallback:
 
         assert response is mock_response
         # Should have been called twice: once for primary, once for first fallback
-        assert client.client.chat.completions.create.call_count == 2
+        assert mock_acompletion.call_count == 2
+        
+        # Second call kwargs
+        call_kwargs = mock_acompletion.call_args_list[1][1]
+        assert call_kwargs["model"] == "openai/gpt-3.5-turbo"
 
     def test_fallback_enabled(self, client):
         assert client.fallback_enabled is True
 
     def test_fallback_sequence(self, client):
-        assert client.fallback_sequence == ["gpt-3.5-turbo", "gpt-3.5-turbo-16k"]
+        assert client.fallback_sequence == ["openai/gpt-3.5-turbo", "openai/gpt-3.5-turbo-16k"]
 
 
 # ---------------------------------------------------------------------------
@@ -244,15 +253,8 @@ class TestFallback:
 class TestClientInit:
     """Client initializes correctly with required config."""
 
-    def test_raises_without_api_key(self):
-        with patch.dict(os.environ, {}, clear=True):
-            config = {"openai": {"models": {}}}
-            with pytest.raises(ValueError, match="OPENAI_API_KEY"):
-                OpenAIClient(config)
-
-    def test_env_key_overrides_config(self):
+    def test_init_api_key_from_env(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "env-key"}):
-            with patch("src.llm.openai_client.openai.AsyncOpenAI"):
-                config = {"openai": {"api_key": "config-key", "models": {}}}
-                client = OpenAIClient(config)
-                assert client.api_key == "env-key"
+            config = {"llm": {"models": {}}}
+            client = LLMClient(config)
+            assert client.api_key == "env-key"

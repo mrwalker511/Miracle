@@ -28,7 +28,7 @@ from src.agents.optional import CodeReviewerAgent, SecurityAuditorAgent
 from src.memory.db_manager import DatabaseManager
 from src.memory.vector_store import VectorStore
 from src.memory.failure_analyzer import FailureAnalyzer, StructuredFailureLog
-from src.llm.openai_client import OpenAIClient
+from src.llm.client import LLMClient
 from src.ui.logger import get_logger
 from src.utils.circuit_breaker import CircuitBreaker
 from src.utils.metrics_collector import MetricsCollector
@@ -72,7 +72,7 @@ class Orchestrator:
         config: Dict[str, Any],
         db_manager: DatabaseManager,
         vector_store: VectorStore,
-        openai_client: OpenAIClient,
+        llm_client: LLMClient,
         max_iterations: int = 15,
         problem_type: str = "general",
         language: str = "python",
@@ -88,7 +88,7 @@ class Orchestrator:
             config: Full configuration dictionary
             db_manager: Database manager
             vector_store: Vector store for memory
-            openai_client: OpenAI client
+            llm_client: OpenAI client
             max_iterations: Maximum iterations allowed
             problem_type: Type of problem being solved
             language: Programming language
@@ -101,7 +101,7 @@ class Orchestrator:
         self.config = config
         self.db = db_manager
         self.vector_store = vector_store
-        self.openai = openai_client
+        self.openai = llm_client
 
         self.max_iterations = max_iterations
         self.current_iteration = 0
@@ -137,7 +137,7 @@ class Orchestrator:
 
         # Create agent factory for centralized agent creation
         self.agent_factory = AgentFactory(
-            openai_client=openai_client,
+            llm_client=llm_client,
             vector_store=vector_store,
             prompts=prompts,
             workspace_path=workspace_root,
@@ -145,28 +145,28 @@ class Orchestrator:
         )
 
         # Core agents
-        self.planner = PlannerAgent('planner', openai_client, vector_store, prompts)
-        self.coder = CoderAgent('coder', openai_client, vector_store, prompts, workspace_path=workspace_root)
+        self.planner = PlannerAgent('planner', llm_client, vector_store, prompts)
+        self.coder = CoderAgent('coder', llm_client, vector_store, prompts, workspace_path=workspace_root)
         self.tester = TesterAgent(
             'tester',
-            openai_client,
+            llm_client,
             vector_store,
             prompts,
             workspace_path=workspace_root,
             config=config,
         )
-        self.reflector = ReflectorAgent('reflector', openai_client, vector_store, prompts)
+        self.reflector = ReflectorAgent('reflector', llm_client, vector_store, prompts)
 
         # Optional review agents — register their phase methods if enabled
         self.code_reviewer: Optional[CodeReviewerAgent] = None
         self.security_auditor: Optional[SecurityAuditorAgent] = None
 
         if enable_code_review:
-            self.code_reviewer = CodeReviewerAgent('code_reviewer', openai_client, vector_store, prompts)
+            self.code_reviewer = CodeReviewerAgent('code_reviewer', llm_client, vector_store, prompts)
             self.optional_phases.append(self._execute_review_phase)
 
         if enable_security_audit:
-            self.security_auditor = SecurityAuditorAgent('security_auditor', openai_client, vector_store, prompts)
+            self.security_auditor = SecurityAuditorAgent('security_auditor', llm_client, vector_store, prompts)
             self.optional_phases.append(self._execute_audit_phase)
 
         # Circuit breaker
@@ -198,7 +198,7 @@ class Orchestrator:
         # Failure analyzer for structured logging
         self.failure_analyzer = FailureAnalyzer()
 
-        self.metrics = MetricsCollector(db=db_manager, openai_client=openai_client)
+        self.metrics = MetricsCollector(db=db_manager, llm_client=llm_client)
         self.state_saver = StateSaver()
 
         self.logger.info(

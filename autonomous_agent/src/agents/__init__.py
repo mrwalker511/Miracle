@@ -50,7 +50,7 @@ class AgentFactory:
 
     def __init__(
         self,
-        openai_client: Any,
+        llm_client: Any,
         vector_store: Any,
         prompts: Dict[str, Any],
         workspace_path: Optional[str] = None,
@@ -59,13 +59,13 @@ class AgentFactory:
         """Initialize the agent factory.
 
         Args:
-            openai_client: OpenAI client for LLM calls
+            llm_client: OpenAI client for LLM calls
             vector_store: Vector store for memory
             prompts: System prompts configuration
             workspace_path: Path to workspace directory
             config: Full configuration dictionary
         """
-        self.openai_client = openai_client
+        self.llm_client = llm_client
         self.vector_store = vector_store
         self.prompts = prompts
         self.workspace_path = workspace_path
@@ -96,7 +96,7 @@ class AgentFactory:
         # Build constructor arguments
         init_kwargs = {
             'agent_type': agent_type,
-            'openai_client': self.openai_client,
+            'llm_client': self.llm_client,
             'vector_store': self.vector_store,
             'prompts': self.prompts,
         }
@@ -149,7 +149,7 @@ class AgentFactory:
 
 def create_agent(
     agent_type: str,
-    openai_client: Any,
+    llm_client: Any,
     vector_store: Any,
     prompts: Dict[str, Any],
     **kwargs
@@ -158,7 +158,7 @@ def create_agent(
 
     Args:
         agent_type: Type of agent to create
-        openai_client: OpenAI client
+        llm_client: OpenAI client
         vector_store: Vector store
         prompts: System prompts
         **kwargs: Additional arguments
@@ -167,7 +167,7 @@ def create_agent(
         Agent instance
     """
     factory = AgentFactory(
-        openai_client=openai_client,
+        llm_client=llm_client,
         vector_store=vector_store,
         prompts=prompts,
         **kwargs
