@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 from src.agents.base_agent import BaseAgent
 from src.llm.tools import get_testing_tools
 from src.sandbox.sandbox_manager import SandboxManager
+from src.utils.approval_manager import ApprovalManager
 
 
 class TesterAgent(BaseAgent):
@@ -20,11 +21,12 @@ class TesterAgent(BaseAgent):
         *args,
         workspace_path: str = "./sandbox/workspace",
         config: Optional[Dict[str, Any]] = None,
+        approval_manager: Optional[ApprovalManager] = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.workspace_path = Path(workspace_path)
-        self.sandbox = SandboxManager(config or {})
+        self.sandbox = SandboxManager(config or {}, approval_manager=approval_manager)
 
     def _resolve_in_workspace(self, workspace: Path, path: str) -> Path:
         if not path:
@@ -41,6 +43,7 @@ class TesterAgent(BaseAgent):
     async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         code_files = context.get("code_files", {})
         task_id = str(context.get("task_id", ""))
+        iteration_id = context.get("iteration_id")
         workspace = Path(context.get("workspace", self.workspace_path / task_id))
         language = str(context.get("language", "python")).lower()
 
@@ -55,7 +58,13 @@ class TesterAgent(BaseAgent):
             }
 
         test_file = test_generation_result["test_file"]
-        test_results = await self._execute_tests(workspace, test_file, language)
+        test_results = await self._execute_tests(
+            workspace,
+            test_file,
+            language,
+            task_id=context.get("task_id"),
+            iteration_id=iteration_id,
+        )
 
         self.logger.info(
             "testing_completed",
@@ -302,7 +311,25 @@ class TesterAgent(BaseAgent):
         test_path.write_text(test_content, encoding="utf-8")
         return test_file
 
-    async def _execute_tests(self, workspace: Path, test_file: str, language: str) -> Dict[str, Any]:
+    async def _execute_tests(
+        self,
+        workspace: Path,
+        test_file: str,
+        language: str,
+        *,
+        task_id: Any = None,
+        iteration_id: Any = None,
+    ) -> Dict[str, Any]:
         if language in {"node", "javascript", "js"}:
-            return await self.sandbox.run_node_tests(workspace=workspace, test_file=test_file)
-        return await self.sandbox.run_python_tests(workspace=workspace, test_file=test_file)
+            return await self.sandbox.run_node_tests(
+                workspace=workspace,
+                test_file=test_file,
+                task_id=task_id,
+                iteration_id=iteration_id,
+            )
+        return await self.sandbox.run_python_tests(
+            workspace=workspace,
+            test_file=test_file,
+            task_id=task_id,
+            iteration_id=iteration_id,
+        )

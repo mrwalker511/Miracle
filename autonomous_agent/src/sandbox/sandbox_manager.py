@@ -16,10 +16,12 @@ import re
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from src.sandbox.docker_executor import DockerExecutor, DockerUnavailableError
 from src.sandbox.resource_limits import ResourceLimits
 from src.ui.logger import get_logger
+from src.utils.approval_manager import ApprovalDenied, ApprovalManager, ApprovalRequest
 from src.utils.execution_hooks import (
     HookRegistry,
     HookContext,
@@ -36,7 +38,12 @@ class SandboxManager:
     - Post-execution: Processes output, auto-formats results
     """
 
-    def __init__(self, config: Dict[str, Any], hook_registry: Optional[HookRegistry] = None):
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        hook_registry: Optional[HookRegistry] = None,
+        approval_manager: Optional[ApprovalManager] = None,
+    ):
         self.logger = get_logger("sandbox_manager")
 
         settings = (config or {}).get("settings", {})
@@ -63,6 +70,7 @@ class SandboxManager:
             self.hook_registry = create_default_hook_registry()
         else:
             self.hook_registry = HookRegistry()  # Empty registry
+        self.approval_manager = approval_manager or ApprovalManager()
 
         if self.engine == "docker":
             try:
@@ -71,18 +79,36 @@ class SandboxManager:
                 self.logger.warning("docker_unavailable_falling_back_to_local", error=str(e))
                 self._docker = None
 
-    async def run_python_tests(self, *, workspace: Path, test_file: str) -> Dict[str, Any]:
+    async def run_python_tests(
+        self,
+        *,
+        workspace: Path,
+        test_file: str,
+        task_id: Optional[UUID] = None,
+        iteration_id: Optional[UUID] = None,
+    ) -> Dict[str, Any]:
         return await self._run_tests(
             language="python",
             workspace=workspace,
             test_file=test_file,
+            task_id=task_id,
+            iteration_id=iteration_id,
         )
 
-    async def run_node_tests(self, *, workspace: Path, test_file: Optional[str] = None) -> Dict[str, Any]:
+    async def run_node_tests(
+        self,
+        *,
+        workspace: Path,
+        test_file: Optional[str] = None,
+        task_id: Optional[UUID] = None,
+        iteration_id: Optional[UUID] = None,
+    ) -> Dict[str, Any]:
         return await self._run_tests(
             language="node",
             workspace=workspace,
             test_file=test_file,
+            task_id=task_id,
+            iteration_id=iteration_id,
         )
 
     async def _run_tests(
@@ -91,6 +117,8 @@ class SandboxManager:
         language: str,
         workspace: Path,
         test_file: Optional[str],
+        task_id: Optional[UUID] = None,
+        iteration_id: Optional[UUID] = None,
     ) -> Dict[str, Any]:
         workspace = workspace.resolve()
         if not workspace.exists():
@@ -108,14 +136,26 @@ class SandboxManager:
                     "test_results": {},
                 }
             cmd = ["python", "-m", "pytest", test_file, "-q", "--tb=short"]
-            return await self._run_command_and_parse_pytest(workspace, cmd, test_file)
+            return await self._run_command_and_parse_pytest(
+                workspace,
+                cmd,
+                test_file,
+                task_id=task_id,
+                iteration_id=iteration_id,
+            )
 
         if language in {"node", "javascript", "js", "typescript", "ts"}:
             if test_file:
                 cmd = ["node", "--test", test_file]
             else:
                 cmd = ["node", "--test"]
-            return await self._run_command_and_parse_node_test(workspace, cmd, test_file)
+            return await self._run_command_and_parse_node_test(
+                workspace,
+                cmd,
+                test_file,
+                task_id=task_id,
+                iteration_id=iteration_id,
+            )
 
         if language == "java":
             return await self._run_java_tests(workspace, test_file)
@@ -150,7 +190,14 @@ class SandboxManager:
             "test_results": {},
         }
 
-    async def _run_command(self, *, workspace: Path, command: List[str]) -> subprocess.CompletedProcess:
+    async def _run_command(
+        self,
+        *,
+        workspace: Path,
+        command: List[str],
+        task_id: Optional[UUID] = None,
+        iteration_id: Optional[UUID] = None,
+    ) -> subprocess.CompletedProcess:
         # Execute pre-execution hooks
         command_str = " ".join(command)
         hook_context = HookContext(
@@ -187,19 +234,23 @@ class SandboxManager:
                 "command_requires_approval",
                 command=command_str[:100],
             )
-            from src.ui.approval_prompt import ApprovalPrompt
-            prompt = ApprovalPrompt()
-            approved = prompt.request(
-                approval_type="Command Execution",
-                details={"command": command_str, "workspace": str(workspace)}
+            approved = await self.approval_manager.request(
+                ApprovalRequest(
+                    approval_type="command_execution",
+                    details={
+                        "command": command_str,
+                        "workspace": str(workspace),
+                        "engine": "docker" if self._docker else "local",
+                        "operation": "execute_command",
+                    },
+                    task_id=task_id,
+                    iteration_id=iteration_id,
+                )
             )
             if not approved:
                 self.logger.error("command_rejected_by_user", command=command_str[:100])
-                return subprocess.CompletedProcess(
-                    args=command,
-                    returncode=1,
-                    stdout="",
-                    stderr="Command execution rejected by user.",
+                raise ApprovalDenied(
+                    "Task paused because the user denied approval for command execution."
                 )
 
         self.logger.info(
@@ -296,9 +347,18 @@ class SandboxManager:
         workspace: Path,
         command: List[str],
         test_file: str,
+        task_id: Optional[UUID] = None,
+        iteration_id: Optional[UUID] = None,
     ) -> Dict[str, Any]:
         try:
-            result = await self._run_command(workspace=workspace, command=command)
+            result = await self._run_command(
+                workspace=workspace,
+                command=command,
+                task_id=task_id,
+                iteration_id=iteration_id,
+            )
+        except ApprovalDenied:
+            raise
         except subprocess.TimeoutExpired:
             return {
                 "passed": False,
@@ -334,9 +394,18 @@ class SandboxManager:
         workspace: Path,
         command: List[str],
         test_file: Optional[str],
+        task_id: Optional[UUID] = None,
+        iteration_id: Optional[UUID] = None,
     ) -> Dict[str, Any]:
         try:
-            result = await self._run_command(workspace=workspace, command=command)
+            result = await self._run_command(
+                workspace=workspace,
+                command=command,
+                task_id=task_id,
+                iteration_id=iteration_id,
+            )
+        except ApprovalDenied:
+            raise
         except subprocess.TimeoutExpired:
             return {
                 "passed": False,

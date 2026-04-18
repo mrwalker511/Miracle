@@ -30,6 +30,7 @@ from src.memory.vector_store import VectorStore
 from src.memory.failure_analyzer import FailureAnalyzer, StructuredFailureLog
 from src.llm.client import LLMClient
 from src.ui.logger import get_logger
+from src.utils.approval_manager import ApprovalDenied, ApprovalManager
 from src.utils.circuit_breaker import CircuitBreaker
 from src.utils.metrics_collector import MetricsCollector
 from src.utils.state_saver import StateSaver
@@ -102,6 +103,7 @@ class Orchestrator:
         self.db = db_manager
         self.vector_store = vector_store
         self.openai = llm_client
+        self.approval_manager = ApprovalManager(db_manager=db_manager)
 
         self.max_iterations = max_iterations
         self.current_iteration = 0
@@ -146,7 +148,15 @@ class Orchestrator:
 
         # Core agents
         self.planner = PlannerAgent('planner', llm_client, vector_store, prompts)
-        self.coder = CoderAgent('coder', llm_client, vector_store, prompts, workspace_path=workspace_root)
+        self.coder = CoderAgent(
+            'coder',
+            llm_client,
+            vector_store,
+            prompts,
+            workspace_path=workspace_root,
+            config=config,
+            approval_manager=self.approval_manager,
+        )
         self.tester = TesterAgent(
             'tester',
             llm_client,
@@ -154,6 +164,7 @@ class Orchestrator:
             prompts,
             workspace_path=workspace_root,
             config=config,
+            approval_manager=self.approval_manager,
         )
         self.reflector = ReflectorAgent('reflector', llm_client, vector_store, prompts)
 
@@ -266,6 +277,7 @@ class Orchestrator:
                 self.current_iteration,
                 self.state.value
             )
+            self.context["iteration_id"] = iteration_id
 
             # Execute current state
             try:
@@ -290,6 +302,17 @@ class Orchestrator:
                     await self._execute_reflection_phase(iteration_id)
                     self.state = OrchestrationState.CODING  # Loop back
 
+            except ApprovalDenied as e:
+                self.logger.warning(
+                    "approval_denied_task_paused",
+                    iteration=self.current_iteration,
+                    state=self.state.value,
+                    message=str(e),
+                )
+                self.context["pause_reason"] = str(e)
+                self.state = OrchestrationState.PAUSED
+                await self._save_checkpoint()
+                break
             except Exception as e:
                 self.logger.error(
                     "iteration_error",
@@ -670,7 +693,7 @@ class Orchestrator:
                 'success': False,
                 'status': 'paused',
                 'iterations': self.current_iteration,
-                'message': 'Task paused by circuit breaker'
+                'message': self.context.get('pause_reason', 'Task paused by circuit breaker')
             }
 
         else:

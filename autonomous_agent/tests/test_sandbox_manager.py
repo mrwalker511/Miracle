@@ -15,6 +15,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.sandbox.sandbox_manager import SandboxManager
+from src.utils.approval_manager import ApprovalDenied
+from src.utils.execution_hooks import ExecutionHook, HookPhase, HookResponse, HookResult
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +157,61 @@ class TestHookIntegration:
                     pass  # Hook blocked before subprocess
             except (PermissionError, RuntimeError, ValueError):
                 pass  # Expected — hook raised
+
+    @pytest.mark.asyncio
+    async def test_command_approval_denial_raises_pause_signal(self, tmp_path):
+        class ApprovalHook(ExecutionHook):
+            def __init__(self):
+                super().__init__("approval_hook", HookPhase.PRE_EXECUTION, priority=5)
+
+            def should_run(self, context):
+                return True
+
+            def execute(self, context):
+                return HookResponse(result=HookResult.REQUIRE_APPROVAL, message="Need approval")
+
+        approval_manager = MagicMock()
+        approval_manager.request = AsyncMock(return_value=False)
+        sandbox = SandboxManager({}, hook_registry=None, approval_manager=approval_manager)
+        sandbox.hook_registry.register(ApprovalHook())
+
+        with pytest.raises(ApprovalDenied):
+            await sandbox._run_command(
+                workspace=tmp_path,
+                command=["python", "-m", "pytest", "-q"],
+            )
+
+    @pytest.mark.asyncio
+    async def test_command_approval_acceptance_runs_command(self, tmp_path):
+        class ApprovalHook(ExecutionHook):
+            def __init__(self):
+                super().__init__("approval_hook", HookPhase.PRE_EXECUTION, priority=5)
+
+            def should_run(self, context):
+                return True
+
+            def execute(self, context):
+                return HookResponse(result=HookResult.REQUIRE_APPROVAL, message="Need approval")
+
+        approval_manager = MagicMock()
+        approval_manager.request = AsyncMock(return_value=True)
+        sandbox = SandboxManager({}, hook_registry=None, approval_manager=approval_manager)
+        sandbox.hook_registry.register(ApprovalHook())
+
+        with patch("asyncio.to_thread") as mock_thread:
+            mock_result = MagicMock()
+            mock_result.returncode = 0
+            mock_result.stdout = ""
+            mock_result.stderr = ""
+            mock_thread.return_value = mock_result
+
+            result = await sandbox._run_command(
+                workspace=tmp_path,
+                command=["python", "-m", "pytest", "-q"],
+            )
+
+        assert result.returncode == 0
+        approval_manager.request.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------

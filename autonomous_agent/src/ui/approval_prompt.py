@@ -15,9 +15,15 @@ class ApprovalPrompt:
         self.console = console or Console()
         self.logger = get_logger("approval_prompt")
 
+    def _format_details(self, details: Dict[str, Any]) -> str:
+        lines = []
+        for key, value in details.items():
+            lines.append(f"- {key}: {value}")
+        return "\n".join(lines)
+
     def request(self, *, approval_type: str, details: Dict[str, Any], default: bool = False) -> bool:
         self.logger.info("approval_requested", approval_type=approval_type, details=details)
-        message = f"Approve {approval_type}?\n\nDetails: {details}"
+        message = f"Approve {approval_type}?\n\n{self._format_details(details)}"
         approved = Confirm.ask(message, default=default, console=self.console)
         self.logger.info("approval_decision", approval_type=approval_type, approved=approved)
         return approved

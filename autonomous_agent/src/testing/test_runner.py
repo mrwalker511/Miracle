@@ -11,11 +11,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from src.sandbox.sandbox_manager import SandboxManager
+from src.utils.approval_manager import ApprovalManager
 
 
 class TestRunner:
-    def __init__(self, config: Dict[str, Any]):
-        self.sandbox = SandboxManager(config)
+    def __init__(self, config: Dict[str, Any], approval_manager: Optional[ApprovalManager] = None):
+        self.sandbox = SandboxManager(config, approval_manager=approval_manager)
 
     def run(self, *, workspace: Path, language: str, test_file: Optional[str] = None) -> Dict[str, Any]:
         language_norm = str(language).lower()

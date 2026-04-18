@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, AsyncMock, call
 import pytest
 
 from src.orchestrator import Orchestrator, OrchestrationState
+from src.utils.approval_manager import ApprovalDenied
 
 
 # ---------------------------------------------------------------------------
@@ -345,6 +346,18 @@ class TestLoopTermination:
         result = await orch.run()
 
         assert result['iterations'] < 20
+
+    @pytest.mark.asyncio
+    async def test_approval_denial_pauses_task(self):
+        orch = make_orchestrator(max_iterations=10)
+        orch.coder.execute.side_effect = ApprovalDenied("approval denied for protected file write")
+
+        result = await orch.run()
+
+        assert result["success"] is False
+        assert result["status"] == "paused"
+        assert "approval denied" in result["message"]
+        assert orch.state == OrchestrationState.PAUSED
 
 
 # ---------------------------------------------------------------------------

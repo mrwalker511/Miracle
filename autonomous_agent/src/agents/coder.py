@@ -1,18 +1,29 @@
 """Coder agent for code generation with tool use."""
 
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from pathlib import Path
 
 from src.agents.base_agent import BaseAgent
 from src.llm.tools import get_coding_tools
 from src.projects.scaffolder import ProjectScaffolder
+from src.ui.approval_prompt import ApprovalPrompt
+from src.utils.approval_manager import ApprovalDenied, ApprovalManager, ApprovalRequest
+from src.utils.execution_hooks import HookContext, HookRegistry, HookResult, create_default_hook_registry
 
 
 class CoderAgent(BaseAgent):
     """Agent responsible for generating code."""
 
-    def __init__(self, *args, workspace_path: str = "./sandbox/workspace", **kwargs):
+    def __init__(
+        self,
+        *args,
+        workspace_path: str = "./sandbox/workspace",
+        config: Optional[Dict[str, Any]] = None,
+        hook_registry: Optional[HookRegistry] = None,
+        approval_manager: Optional[ApprovalManager] = None,
+        **kwargs,
+    ):
         """Initialize coder agent.
 
         Args:
@@ -22,6 +33,15 @@ class CoderAgent(BaseAgent):
         super().__init__(*args, **kwargs)
         self.workspace_path = Path(workspace_path)
         self.scaffolder = ProjectScaffolder()
+        settings = (config or {}).get("settings", {})
+        hooks_config = settings.get("execution_hooks", {})
+        if hook_registry is not None:
+            self.hook_registry = hook_registry
+        elif hooks_config.get("enabled", True):
+            self.hook_registry = create_default_hook_registry()
+        else:
+            self.hook_registry = HookRegistry()
+        self.approval_manager = approval_manager or ApprovalManager(prompt=ApprovalPrompt())
 
     async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Generate code based on plan.
@@ -83,7 +103,13 @@ class CoderAgent(BaseAgent):
         code_files = {}
 
         for tool_call in tool_calls:
-            result = self._execute_tool(tool_call, task_workspace)
+            result = await self._execute_tool(
+                tool_call,
+                task_workspace,
+                task_id=context.get("task_id"),
+                iteration_id=context.get("iteration_id"),
+                iteration=iteration,
+            )
             if result.get('file_created'):
                 code_files[result['filename']] = result['content']
 
@@ -105,10 +131,14 @@ class CoderAgent(BaseAgent):
             'workspace': str(task_workspace)
         }
 
-    def _execute_tool(
+    async def _execute_tool(
         self,
         tool_call: Dict[str, Any],
-        workspace: Path
+        workspace: Path,
+        *,
+        task_id: Any = None,
+        iteration_id: Any = None,
+        iteration: int = 0,
     ) -> Dict[str, Any]:
         """Execute a tool call.
 
@@ -135,10 +165,13 @@ class CoderAgent(BaseAgent):
         self.logger.debug("executing_tool", tool=tool_name, args=arguments)
 
         if tool_name == 'create_file':
-            return self._create_file(
+            return await self._create_file(
                 workspace,
                 arguments.get('path'),
-                arguments.get('content')
+                arguments.get('content'),
+                task_id=task_id,
+                iteration_id=iteration_id,
+                iteration=iteration,
             )
         elif tool_name == 'read_file':
             return self._read_file(workspace, arguments.get('path'))
@@ -160,7 +193,16 @@ class CoderAgent(BaseAgent):
 
         raise ValueError(f'Path escapes workspace: {path}')
 
-    def _create_file(self, workspace: Path, path: str, content: str) -> Dict[str, Any]:
+    async def _create_file(
+        self,
+        workspace: Path,
+        path: str,
+        content: str,
+        *,
+        task_id: Any = None,
+        iteration_id: Any = None,
+        iteration: int = 0,
+    ) -> Dict[str, Any]:
         """Create a file in the workspace.
 
         Args:
@@ -182,16 +224,69 @@ class CoderAgent(BaseAgent):
             self.logger.error("file_creation_failed", path=path, error=str(e))
             return {'error': str(e)}
 
+        hook_context = HookContext(
+            operation="write_file",
+            agent_type="coder",
+            iteration=iteration,
+            target=path,
+            content=content,
+            metadata={"workspace": str(workspace)},
+        )
+        hook_result, modified_context, warnings = self.hook_registry.execute_pre_hooks(hook_context)
+
+        for warning in warnings:
+            self.logger.warning("file_write_hook_warning", message=warning)
+
+        if hook_result == HookResult.BLOCK:
+            return {"error": "File write blocked by safety hook"}
+
+        if hook_result == HookResult.REQUIRE_APPROVAL:
+            approved = await self.approval_manager.request(
+                ApprovalRequest(
+                    approval_type="protected_file_write",
+                    details={
+                        "path": path,
+                        "workspace": str(workspace),
+                        "operation": "write_file",
+                    },
+                    task_id=task_id,
+                    iteration_id=iteration_id,
+                )
+            )
+            if not approved:
+                raise ApprovalDenied(
+                    f"Task paused because the user denied approval to write protected file '{path}'."
+                )
+
+        content_to_write = str(modified_context.content)
+
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            file_path.write_text(content, encoding='utf-8')
+            file_path.write_text(content_to_write, encoding='utf-8')
+
+            post_context = HookContext(
+                operation="write_file",
+                agent_type="coder",
+                iteration=iteration,
+                target=path,
+                content=content_to_write,
+                metadata={"workspace": str(workspace)},
+            )
+            _, post_modified_context, post_warnings = self.hook_registry.execute_post_hooks(post_context)
+            for warning in post_warnings:
+                self.logger.info("file_write_post_hook", message=warning)
+
+            if str(post_modified_context.content) != content_to_write:
+                content_to_write = str(post_modified_context.content)
+                file_path.write_text(content_to_write, encoding="utf-8")
+
             self.logger.info("file_created", path=str(file_path))
 
             return {
                 'file_created': True,
                 'filename': path,
-                'content': content,
+                'content': content_to_write,
                 'path': str(file_path)
             }
         except Exception as e:
