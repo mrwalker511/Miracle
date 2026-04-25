@@ -65,6 +65,7 @@ sandbox/workspace/*
 .coverage
 htmlcov/
 .pytest_cache/
+.pytest_tmp/
 
 # Temporary files
 *.tmp
