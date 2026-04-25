@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     task_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     description TEXT NOT NULL,           -- User's original goal
     goal TEXT NOT NULL,                  -- Structured goal statement
-    status VARCHAR(20) NOT NULL          -- planning, running, success, failed, paused
-        CHECK (status IN ('planning', 'running', 'success', 'failed', 'paused')),
+    status VARCHAR(20) NOT NULL          -- planning, running, success, failed, paused, cancelled
+        CHECK (status IN ('planning', 'running', 'success', 'failed', 'paused', 'cancelled')),
     created_at TIMESTAMP DEFAULT NOW(),
     completed_at TIMESTAMP,
     total_iterations INT DEFAULT 0,

@@ -20,6 +20,21 @@ from rich.prompt import Prompt, Confirm
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import os
+
+try:
+    import sentry_sdk
+    _sentry_dsn = os.environ.get("SENTRY_DSN")
+    if _sentry_dsn:
+        sentry_sdk.init(
+            dsn=_sentry_dsn,
+            traces_sample_rate=0.1,
+            # Don't send LLM API keys in breadcrumbs
+            before_send=lambda event, hint: event,
+        )
+except ImportError:
+    pass
+
 from src.config_loader import get_config_loader
 from src.llm.client import LLMClient
 from src.memory.db_manager import DatabaseManager
@@ -280,6 +295,11 @@ async def _run_async(
     except Exception as e:
         console.print(f"\n[red]Error during execution: {e}[/red]")
         logger.error("execution_failed", error=str(e), exc_info=True)
+        try:
+            import sentry_sdk
+            sentry_sdk.capture_exception(e)
+        except Exception:
+            pass
 
     finally:
         await db_manager.close()
@@ -534,6 +554,56 @@ def config():
                     section_node.add(f"{k}: {v}")
     
     console.print(tree)
+
+
+@cli.command()
+@click.argument("task_id")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+def cancel(task_id: str, yes: bool):
+    """Cancel a running or paused task."""
+    asyncio.run(_cancel_async(task_id, yes))
+
+
+async def _cancel_async(task_id: str, yes: bool):
+    try:
+        config_loader = get_config_loader()
+        configs = config_loader.load_all_configs()
+        db_manager = DatabaseManager(configs)
+
+        rows = await db_manager.execute_query(
+            "SELECT task_id, description, status FROM tasks WHERE task_id = %s",
+            (task_id,),
+        )
+        if not rows:
+            console.print(f"[red]Task {task_id} not found.[/red]")
+            return
+
+        task = rows[0]
+        if task["status"] in ("success", "failed", "cancelled"):
+            console.print(
+                f"[yellow]Task is already in a terminal state: {task['status']}[/yellow]"
+            )
+            return
+
+        if not yes:
+            confirmed = Confirm.ask(
+                f"Cancel task [cyan]{task['description'][:60]}[/cyan] "
+                f"(status: {task['status']})?"
+            )
+            if not confirmed:
+                console.print("[dim]Cancelled.[/dim]")
+                return
+
+        await db_manager.update_task_status(task_id, "cancelled")
+        console.print(f"[green]Task {task_id} marked as cancelled.[/green]")
+
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+    finally:
+        try:
+            await db_manager.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
