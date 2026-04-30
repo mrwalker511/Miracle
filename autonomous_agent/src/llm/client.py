@@ -27,13 +27,8 @@ class LLMClient:
             config: Full configuration dictionary containing the 'llm' key
         """
         self.config = config.get('llm', {})
-        self.api_key = os.getenv("OPENAI_API_KEY") or self.config.get('api_key', 'sk-dummy')
+        self.api_key = os.getenv("OPENAI_API_KEY") or self.config.get('api_key') or None
         self.base_url = os.getenv("LLM_BASE_URL") or self.config.get('base_url')
-
-        # Since Litellm abstracts providers, it doesn't strictly need API keys for local endpoints.
-        # But we'll export it for litellm's internal parsing if provided.
-        if self.api_key:
-            os.environ['OPENAI_API_KEY'] = self.api_key
 
         self.models = self.config.get('models', {})
         self.temperature = self.config.get('temperature', 0.2)
@@ -96,6 +91,8 @@ class LLMClient:
             "max_tokens": max_tokens or self.max_tokens,
         }
 
+        if self.api_key:
+            params["api_key"] = self.api_key
         if self.base_url:
             params["api_base"] = self.base_url
 

@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: autonomous_agent
       POSTGRES_USER: agent_user
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD env var must be set}
     ports:
       - "5434:5432"
     volumes:

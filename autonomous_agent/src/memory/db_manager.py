@@ -28,22 +28,24 @@ class DatabaseManager:
         self.config = config['database']
         self.logger = get_logger('db_manager')
         
-        conninfo = (
-            f"host={self.config['host']} port={self.config['port']} "
-            f"dbname={self.config['name']} user={self.config['user']} "
-            f"password={self.config['password']}"
-        )
-
         async def configure_connection(conn):
             await register_vector_async(conn)
 
-        # Create connection pool
+        # Pass credentials as kwargs so the password never appears in a
+        # conninfo string that could surface in tracebacks or logs.
         self.pool = AsyncConnectionPool(
-            conninfo,
+            "",
             min_size=1,
             max_size=self.config.get('pool_size', 10),
-            kwargs={"row_factory": dict_row},
-            configure=configure_connection
+            kwargs={
+                "host": self.config['host'],
+                "port": self.config['port'],
+                "dbname": self.config['name'],
+                "user": self.config['user'],
+                "password": self.config['password'],
+                "row_factory": dict_row,
+            },
+            configure=configure_connection,
         )
 
         self.logger.info("database_pool_created", database=self.config['name'])

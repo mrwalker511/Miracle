@@ -185,13 +185,21 @@ class CoderAgent(BaseAgent):
         if not path:
             raise ValueError('Path is required')
 
+        # Reject absolute paths supplied by the LLM before joining them,
+        # so that Path(workspace / "/etc/passwd") can't escape the sandbox.
+        if Path(path).is_absolute():
+            raise ValueError(f'Absolute paths are not allowed: {path}')
+
         workspace_root = workspace.resolve()
         candidate = (workspace_root / path).resolve()
 
-        if candidate == workspace_root or workspace_root in candidate.parents:
-            return candidate
+        # Use relative_to() — raises ValueError if candidate is outside workspace.
+        try:
+            candidate.relative_to(workspace_root)
+        except ValueError:
+            raise ValueError(f'Path escapes workspace: {path}')
 
-        raise ValueError(f'Path escapes workspace: {path}')
+        return candidate
 
     async def _create_file(
         self,

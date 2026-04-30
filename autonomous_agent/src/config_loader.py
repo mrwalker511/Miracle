@@ -122,8 +122,8 @@ class ConfigLoader:
             
         required_db_keys = ['host', 'port', 'name', 'user', 'password']
         for k in required_db_keys:
-            if k not in configs['database']:
-                raise ValueError(f"Missing required database config: '{k}'")
+            if k not in configs['database'] or not str(configs['database'][k]).strip():
+                raise ValueError(f"Missing or empty required database config: '{k}'")
                 
         if 'llm' not in configs or not configs['llm']:
             raise ValueError("Missing 'llm' configuration. Check config/llm.yaml")
