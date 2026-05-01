@@ -22,6 +22,25 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import os
 
+_SENSITIVE_KEYS = {"api_key", "openai_api_key", "authorization", "password", "token", "secret"}
+
+
+def _sentry_before_send(event, hint):
+    """Strip credentials from Sentry events before they leave the process."""
+    def _scrub(obj):
+        if isinstance(obj, dict):
+            return {
+                k: "***" if k.lower() in _SENSITIVE_KEYS else _scrub(v)
+                for k, v in obj.items()
+            }
+        if isinstance(obj, list):
+            return [_scrub(i) for i in obj]
+        return obj
+
+    event = _scrub(event)
+    return event
+
+
 try:
     import sentry_sdk
     _sentry_dsn = os.environ.get("SENTRY_DSN")
@@ -29,8 +48,7 @@ try:
         sentry_sdk.init(
             dsn=_sentry_dsn,
             traces_sample_rate=0.1,
-            # Don't send LLM API keys in breadcrumbs
-            before_send=lambda event, hint: event,
+            before_send=_sentry_before_send,
         )
 except ImportError:
     pass
@@ -479,8 +497,9 @@ async def _resume_async(task_id: str, max_iterations: int):
     finally:
         try:
             await db_manager.close()
-        except:
-            pass
+        except Exception as _close_err:
+            import logging
+            logging.getLogger(__name__).warning("db_close_failed: %s", _close_err)
 
 @cli.command()
 def metrics():
@@ -525,8 +544,9 @@ async def _metrics_async():
     finally:
         try:
             await db_manager.close()
-        except:
-            pass
+        except Exception as _close_err:
+            import logging
+            logging.getLogger(__name__).warning("db_close_failed: %s", _close_err)
 
 @cli.command()
 def config():

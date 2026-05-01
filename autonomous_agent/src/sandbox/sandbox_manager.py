@@ -20,6 +20,7 @@ from uuid import UUID
 
 from src.sandbox.docker_executor import DockerExecutor, DockerUnavailableError
 from src.sandbox.resource_limits import ResourceLimits
+from src.sandbox.safety_checker import SafetyChecker
 from src.ui.logger import get_logger
 from src.utils.approval_manager import ApprovalDenied, ApprovalManager, ApprovalRequest
 from src.utils.execution_hooks import (
@@ -71,6 +72,8 @@ class SandboxManager:
         else:
             self.hook_registry = HookRegistry()  # Empty registry
         self.approval_manager = approval_manager or ApprovalManager()
+
+        self.safety_checker = SafetyChecker(config)
 
         if self.engine == "docker":
             try:
@@ -135,6 +138,25 @@ class SandboxManager:
                     "error_message": "No test file provided for Python execution",
                     "test_results": {},
                 }
+            test_path = workspace / test_file
+            if test_path.exists():
+                try:
+                    code_str = test_path.read_text(encoding="utf-8")
+                    is_safe, issues, _ = self.safety_checker.check_code(code_str)
+                    if not is_safe:
+                        self.logger.error(
+                            "safety_check_blocked_execution",
+                            test_file=test_file,
+                            issues=issues,
+                        )
+                        return {
+                            "passed": False,
+                            "test_file": test_file,
+                            "error_message": f"Safety check failed: {'; '.join(issues)}",
+                            "test_results": {},
+                        }
+                except Exception as e:
+                    self.logger.warning("safety_check_error", error=str(e))
             cmd = ["python", "-m", "pytest", test_file, "-q", "--tb=short"]
             return await self._run_command_and_parse_pytest(
                 workspace,
@@ -256,7 +278,8 @@ class SandboxManager:
         self.logger.info(
             "sandbox_command_start",
             engine="docker" if self._docker else "local",
-            command=command,
+            command=command[0] if command else "",
+            arg_count=len(command) - 1,
             workspace=str(workspace),
         )
 
